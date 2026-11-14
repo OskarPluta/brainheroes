@@ -1,0 +1,26 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache & build
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Hackathon datasets & raw high-frequency recordings (large binary files >2GB)
+infopack_and_data/
+infopack_and_data*/
+*.snirf
+*.zip
+*.tar.gz
+*.h5
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
