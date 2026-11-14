@@ -277,10 +277,9 @@ def run_loocv_subspace_decomposition(
 
 def _supine_stage2_formulas(
     z_mat: np.ndarray,
-    cm_vec: np.ndarray,
     col_idx: dict[str, int],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Evaluates Dataset 1 (Supine) directional physiological deficit formulas on z-score matrix."""
+) -> np.ndarray:
+    """Evaluates Dataset 1 (Supine) untuned a-priori directional physiological deficit RMS."""
     d_sdnn = np.maximum(0.0, -z_mat[:, col_idx["bs_sdnn_ms"]])
     d_mayer_low = np.maximum(0.0, -z_mat[:, col_idx["bs_mayer_amp"]])
     d_mayer_ratio_low = np.maximum(0.0, -z_mat[:, col_idx["bs_mayer_resp_ratio"]])
@@ -291,15 +290,7 @@ def _supine_stage2_formulas(
     apriori_raw = np.sqrt(
         (d_sdnn**2 + d_mayer_low**2 + d_mayer_ratio_low**2 + d_lr_low**2 + d_uncoupling**2 + d_hr_blunted**2) / 6.0
     )
-    benign_hyper_excess = np.maximum(0.0, z_mat[:, col_idx["bs_rmssd_ms"]]) + np.maximum(
-        0.0, z_mat[:, col_idx["bh_dur_max"]] - 0.5
-    )
-    uncoupling_residual = np.sqrt(cm_vec) / (1.0 + benign_hyper_excess)
-    deficit_rms = np.sqrt(
-        (d_sdnn**2 + d_mayer_low**2 + d_mayer_ratio_low**2 + d_lr_low**2 + d_uncoupling**2) / 5.0
-    )
-    combined_raw = deficit_rms + 0.65 * uncoupling_residual
-    return apriori_raw, deficit_rms, combined_raw
+    return apriori_raw
 
 
 def compute_supine_stage2_scores(
@@ -309,45 +300,58 @@ def compute_supine_stage2_scores(
     blind_training: bool = False,
 ) -> pd.DataFrame:
     """
-    Computes directional physiological deficit scores for Dataset 1 (Supine) strictly out-of-fold
+    Computes untuned directional physiological deficit scores for Dataset 1 (Supine) strictly out-of-fold
     with zero leakage from subject i into fold i's reference distribution:
-      1. `score_apriori_deficit`: Equal-weight RMS of standard physiological insufficiency axes
+      1. `score_apriori_deficit`: Equal-weight RMS of 6 a-priori physiological insufficiency axes
          (reduced autonomic variability SDNN, suppressed Mayer oscillations & Mayer/resp ratio,
-          reduced L-R coherence, and blunted HR reactivity relative to cortical hypercapnic response).
-      2. `score_normative_combined`: Combines Stage 1 out-of-subspace correlation break (Cross-Modal)
-         gated against benign vagal/apneic hyper-reactivity with Stage 2 directional deficit.
+          reduced L-R coherence, blunted HR reactivity, and cortical-HR uncoupling).
+      2. `score_normative_combined`: Untuned 50/50 combination of Stage 1 subspace percentile
+         (`fnirs_subspace_pct`) and Stage 2 a-priori deficit percentile (`score_apriori_deficit_pct`),
+         with no post-hoc gating or dataset-specific weights.
     """
     res = loocv_df.copy()
     n = len(df)
     fcols = list(loocv_df.attrs.get("feature_cols", []))
     col_idx = {c: j for j, c in enumerate(fcols)}
     z_outer = np.column_stack([res[f"z_{c}"].to_numpy() for c in fcols])
-    cm_outer = res["fnirs_cm_raw"].to_numpy()
 
-    apriori_raw, deficit_rms, combined_raw = _supine_stage2_formulas(z_outer, cm_outer, col_idx)
+    apriori_raw = _supine_stage2_formulas(z_outer, col_idx)
 
     apriori_pct = np.zeros(n, dtype=np.float64)
-    deficit_pct = np.zeros(n, dtype=np.float64)
+    combined_raw = np.zeros(n, dtype=np.float64)
     combined_pct = np.zeros(n, dtype=np.float64)
 
     inner_oof = loocv_df.attrs.get("inner_oof")
     for i in range(n):
         if inner_oof is not None:
             rec_i = inner_oof[i]
-            ap_tr, def_tr, comb_tr = _supine_stage2_formulas(rec_i["z_tr_oof"], rec_i["cm_tr_oof"], col_idx)
+            ap_tr = _supine_stage2_formulas(rec_i["z_tr_oof"], col_idx)
+            sub_tr_raw = np.maximum(
+                rec_i["t2_tr_pct"],
+                np.maximum(
+                    rec_i["spe_tr_pct"],
+                    np.array([empirical_percentile_oof(v, rec_i["cm_tr_oof"]) for v in rec_i["cm_tr_oof"]]),
+                ),
+            )
+            sub_train = np.array([empirical_percentile_oof(v, sub_tr_raw) for v in sub_tr_raw])
         else:
             tmask = np.ones(n, dtype=bool) if blind_training else ref_mask.copy()
             tmask[i] = False
-            ap_tr, def_tr, comb_tr = apriori_raw[tmask], deficit_rms[tmask], combined_raw[tmask]
+            ap_tr = apriori_raw[tmask]
+            sub_train = res["fnirs_subspace_pct"].to_numpy()[tmask]
 
         apriori_pct[i] = empirical_percentile_oof(apriori_raw[i], ap_tr)
-        deficit_pct[i] = empirical_percentile_oof(deficit_rms[i], def_tr)
-        combined_pct[i] = empirical_percentile_oof(combined_raw[i], comb_tr)
+        ap_train_pct = np.array([empirical_percentile_oof(v, ap_tr) for v in ap_tr])
+        comb_train = 0.5 * sub_train + 0.5 * ap_train_pct
+
+        comb_i = 0.5 * float(res["fnirs_subspace_pct"].iloc[i]) + 0.5 * apriori_pct[i]
+        combined_raw[i] = comb_i
+        combined_pct[i] = empirical_percentile_oof(comb_i, comb_train)
 
     res["score_apriori_deficit_raw"] = apriori_raw
     res["score_apriori_deficit_pct"] = apriori_pct
-    res["score_deficit_rms"] = deficit_rms
-    res["score_deficit_pct"] = deficit_pct
+    res["score_deficit_rms"] = apriori_raw
+    res["score_deficit_pct"] = apriori_pct
     res["score_normative_combined"] = combined_raw
     res["score_normative_combined_pct"] = combined_pct
     return res
@@ -356,17 +360,15 @@ def compute_supine_stage2_scores(
 def _dot_stage2_formulas(
     z_mat: np.ndarray,
     col_idx: dict[str, int],
-) -> tuple[np.ndarray, np.ndarray]:
-    """Evaluates Dataset 2 (DOT Sitting) directional deficit formulas on z-score matrix."""
+) -> np.ndarray:
+    """Evaluates Dataset 2 (DOT Sitting) untuned a-priori SPB resonance deficit RMS."""
     d_spb1 = np.maximum(0.0, -z_mat[:, col_idx["spb1_gain_01hz"]])
     d_spb_med = np.maximum(0.0, -z_mat[:, col_idx["spb_gain_med"]])
     d_ssr_gain = np.maximum(0.0, -z_mat[:, col_idx["spb_ssr_gain_med"]])
     d_q = np.maximum(0.0, -z_mat[:, col_idx["spb_q_factor"]])
 
     apriori_spb_raw = np.sqrt((d_spb1**2 + d_spb_med**2 + d_ssr_gain**2 + d_q**2) / 4.0)
-    d_eve_cost = np.maximum(0.0, z_mat[:, col_idx["bh_evening_morning_ratio"]])
-    deficit_rms = np.sqrt((d_spb1**2 + d_spb_med**2 + d_ssr_gain**2 + d_q**2 + d_eve_cost**2) / 5.0)
-    return apriori_spb_raw, deficit_rms
+    return apriori_spb_raw
 
 
 def compute_dot_stage2_scores(
@@ -376,13 +378,13 @@ def compute_dot_stage2_scores(
     blind_training: bool = False,
 ) -> pd.DataFrame:
     """
-    Computes directional physiological deficit scores for Dataset 2 (DOT Sitting) strictly out-of-fold
+    Computes untuned directional physiological deficit scores for Dataset 2 (DOT Sitting) strictly out-of-fold
     with zero leakage from subject i into fold i's reference distribution:
-      1. `score_apriori_spb_deficit`: Purely a-priori cardiorespiratory resonance deficit
+      1. `score_apriori_spb_deficit`: Equal-weight RMS of 4 a-priori cardiorespiratory resonance axes
          (blunted 0.1 Hz Mayer amplification in SPB1 & median SPB, blunted cortical SSR gain,
-          and reduced resonance Q-factor), without any evening/morning BH ratio term.
-      2. `score_normative_combined`: Full Stage 1 + Stage 2 directional triage including
-         evening hypoxic cost surge (`bh_evening_morning_ratio`) as in METHODOLOGY_ANOMALY_DETECTION.md.
+          and reduced resonance Q-factor), with no post-hoc evening/morning BH term.
+      2. `score_normative_combined`: Untuned 50/50 combination of Stage 1 subspace percentile
+         (`fnirs_subspace_pct`) and Stage 2 a-priori SPB deficit percentile (`score_apriori_spb_deficit_pct`).
     """
     res = loocv_df.copy()
     n = len(df)
@@ -390,10 +392,9 @@ def compute_dot_stage2_scores(
     col_idx = {c: j for j, c in enumerate(fcols)}
     z_outer = np.column_stack([res[f"z_{c}"].to_numpy() for c in fcols])
 
-    apriori_spb_raw, deficit_rms = _dot_stage2_formulas(z_outer, col_idx)
+    apriori_spb_raw = _dot_stage2_formulas(z_outer, col_idx)
 
     apriori_pct = np.zeros(n, dtype=np.float64)
-    deficit_pct = np.zeros(n, dtype=np.float64)
     combined_raw = np.zeros(n, dtype=np.float64)
     combined_pct = np.zeros(n, dtype=np.float64)
 
@@ -401,29 +402,33 @@ def compute_dot_stage2_scores(
     for i in range(n):
         if inner_oof is not None:
             rec_i = inner_oof[i]
-            ap_tr, def_tr = _dot_stage2_formulas(rec_i["z_tr_oof"], col_idx)
-            sub_train = np.maximum(rec_i["t2_tr_pct"], rec_i["spe_tr_pct"])
+            ap_tr = _dot_stage2_formulas(rec_i["z_tr_oof"], col_idx)
+            sub_tr_raw = np.maximum(
+                rec_i["t2_tr_pct"],
+                np.maximum(
+                    rec_i["spe_tr_pct"],
+                    np.array([empirical_percentile_oof(v, rec_i["cm_tr_oof"]) for v in rec_i["cm_tr_oof"]]),
+                ),
+            )
+            sub_train = np.array([empirical_percentile_oof(v, sub_tr_raw) for v in sub_tr_raw])
         else:
             tmask = np.ones(n, dtype=bool) if blind_training else ref_mask.copy()
             tmask[i] = False
-            ap_tr, def_tr = apriori_spb_raw[tmask], deficit_rms[tmask]
-            sub_train = np.maximum(res["fnirs_t2_pct"].to_numpy()[tmask], res["fnirs_spe_pct"].to_numpy()[tmask])
+            ap_tr = apriori_spb_raw[tmask]
+            sub_train = res["fnirs_subspace_pct"].to_numpy()[tmask]
 
         apriori_pct[i] = empirical_percentile_oof(apriori_spb_raw[i], ap_tr)
-        deficit_pct[i] = empirical_percentile_oof(deficit_rms[i], def_tr)
+        ap_train_pct = np.array([empirical_percentile_oof(v, ap_tr) for v in ap_tr])
+        comb_train = 0.5 * sub_train + 0.5 * ap_train_pct
 
-        def_train_pct = np.array([empirical_percentile_oof(v, def_tr) for v in def_tr])
-        comb_train = 0.35 * sub_train + 0.65 * def_train_pct
-
-        sub_i = max(float(res["fnirs_t2_pct"].iloc[i]), float(res["fnirs_spe_pct"].iloc[i]))
-        comb_i = 0.35 * sub_i + 0.65 * deficit_pct[i]
+        comb_i = 0.5 * float(res["fnirs_subspace_pct"].iloc[i]) + 0.5 * apriori_pct[i]
         combined_raw[i] = comb_i
         combined_pct[i] = empirical_percentile_oof(comb_i, comb_train)
 
     res["score_apriori_spb_deficit_raw"] = apriori_spb_raw
     res["score_apriori_spb_deficit_pct"] = apriori_pct
-    res["score_deficit_rms"] = deficit_rms
-    res["score_deficit_pct"] = deficit_pct
+    res["score_deficit_rms"] = apriori_spb_raw
+    res["score_deficit_pct"] = apriori_pct
     res["score_normative_combined"] = combined_raw
     res["score_normative_combined_pct"] = combined_pct
     return res

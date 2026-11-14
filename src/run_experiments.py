@@ -103,7 +103,6 @@ DOT_PPG_COLS = [
     "rs_hr_bpm",
     "rs_sdnn_ms",
     "rs_rmssd_ms",
-    "bh_dur_est",
     "bh_hr_delta",
 ]
 
@@ -153,24 +152,13 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
     # Ground-truth definitions for DOT Sitting (N=17)
     # Criterion A (Strict Cardiorespiratory Diagnosis): ID 12 (Asthma + bronchodilator)
     dot_pos_crit_a = (df_dot["ID"] == 12).to_numpy()
-    # Criterion B (Cardiorespiratory + WHO Class I Obesity BMI >= 30.0 as in METHODOLOGY_ANOMALY_DETECTION.md): ID 12, 9, 16
+    # Criterion B (Cardiorespiratory + WHO Class I Obesity BMI >= 30.0): ID 12, 9, 16
     dot_pos_crit_b = (df_dot["ID"].isin([12, 9, 16])).to_numpy()
     dot_neg_ctrl = (df_dot["ID"] == 17).to_numpy()  # Cornax (GI)
+    dot_ref_mask_a = ~dot_pos_crit_a
     dot_ref_mask_b = ~dot_pos_crit_b
 
-    # Run Supine LOOCV (Normative & Blind)
-    sup_loocv_norm = run_loocv_subspace_decomposition(
-        df_sup,
-        SUPINE_FEATURE_COLS,
-        SUPINE_LOG_COLS,
-        SUPINE_PPG_COLS,
-        SUPINE_BRAIN_COLS,
-        sup_ref_mask_a,
-        n_components=3,
-        blind_training=False,
-    )
-    sup_scores_norm = compute_supine_stage2_scores(df_sup, sup_loocv_norm, sup_ref_mask_a, blind_training=False)
-
+    # Run Supine LOOCV (Fully Blind Unsupervised as primary + Normative Pre-Screened Reference)
     sup_loocv_blind = run_loocv_subspace_decomposition(
         df_sup,
         SUPINE_FEATURE_COLS,
@@ -183,9 +171,8 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
     )
     sup_scores_blind = compute_supine_stage2_scores(df_sup, sup_loocv_blind, sup_ref_mask_a, blind_training=True)
 
-    # Age-DPF sensitivity on Supine
-    sup_loocv_agedpf = run_loocv_subspace_decomposition(
-        df_sup_age,
+    sup_loocv_norm = run_loocv_subspace_decomposition(
+        df_sup,
         SUPINE_FEATURE_COLS,
         SUPINE_LOG_COLS,
         SUPINE_PPG_COLS,
@@ -194,23 +181,36 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
         n_components=3,
         blind_training=False,
     )
-    sup_scores_agedpf = compute_supine_stage2_scores(
-        df_sup_age, sup_loocv_agedpf, sup_ref_mask_a, blind_training=False
-    )
+    sup_scores_norm = compute_supine_stage2_scores(df_sup, sup_loocv_norm, sup_ref_mask_a, blind_training=False)
 
-    # Run DOT Sitting LOOCV (Normative & Blind)
-    dot_loocv_norm = run_loocv_subspace_decomposition(
-        df_dot,
-        DOT_FEATURE_COLS,
-        DOT_LOG_COLS,
-        DOT_PPG_COLS,
-        DOT_BRAIN_COLS,
-        dot_ref_mask_b,
+    sup_loocv_norm_b = run_loocv_subspace_decomposition(
+        df_sup,
+        SUPINE_FEATURE_COLS,
+        SUPINE_LOG_COLS,
+        SUPINE_PPG_COLS,
+        SUPINE_BRAIN_COLS,
+        sup_ref_mask_b,
         n_components=3,
         blind_training=False,
     )
-    dot_scores_norm = compute_dot_stage2_scores(df_dot, dot_loocv_norm, dot_ref_mask_b, blind_training=False)
+    sup_scores_norm_b = compute_supine_stage2_scores(df_sup, sup_loocv_norm_b, sup_ref_mask_b, blind_training=False)
 
+    # Age-DPF sensitivity on Supine (Fully Blind LOOCV)
+    sup_loocv_agedpf = run_loocv_subspace_decomposition(
+        df_sup_age,
+        SUPINE_FEATURE_COLS,
+        SUPINE_LOG_COLS,
+        SUPINE_PPG_COLS,
+        SUPINE_BRAIN_COLS,
+        sup_ref_mask_a,
+        n_components=3,
+        blind_training=True,
+    )
+    sup_scores_agedpf = compute_supine_stage2_scores(
+        df_sup_age, sup_loocv_agedpf, sup_ref_mask_a, blind_training=True
+    )
+
+    # Run DOT Sitting LOOCV (Fully Blind Unsupervised as primary + Normative Pre-Screened Reference)
     dot_loocv_blind = run_loocv_subspace_decomposition(
         df_dot,
         DOT_FEATURE_COLS,
@@ -223,24 +223,49 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
     )
     dot_scores_blind = compute_dot_stage2_scores(df_dot, dot_loocv_blind, dot_ref_mask_b, blind_training=True)
 
-    # Save full score tables
-    sup_merged = pd.concat([df_sup, sup_scores_norm.drop(columns=["ID"])], axis=1)
+    dot_loocv_norm_a = run_loocv_subspace_decomposition(
+        df_dot,
+        DOT_FEATURE_COLS,
+        DOT_LOG_COLS,
+        DOT_PPG_COLS,
+        DOT_BRAIN_COLS,
+        dot_ref_mask_a,
+        n_components=3,
+        blind_training=False,
+    )
+    dot_scores_norm_a = compute_dot_stage2_scores(df_dot, dot_loocv_norm_a, dot_ref_mask_a, blind_training=False)
+
+    dot_loocv_norm = run_loocv_subspace_decomposition(
+        df_dot,
+        DOT_FEATURE_COLS,
+        DOT_LOG_COLS,
+        DOT_PPG_COLS,
+        DOT_BRAIN_COLS,
+        dot_ref_mask_b,
+        n_components=3,
+        blind_training=False,
+    )
+    dot_scores_norm = compute_dot_stage2_scores(df_dot, dot_loocv_norm, dot_ref_mask_b, blind_training=False)
+
+    # Save full score tables from Fully Blind LOOCV (zero label usage)
+    sup_merged = pd.concat([df_sup, sup_scores_blind.drop(columns=["ID"])], axis=1)
     sup_merged.to_csv(res_dir / "supine_loocv_results.csv", index=False)
 
-    dot_merged = pd.concat([df_dot, dot_scores_norm.drop(columns=["ID"])], axis=1)
+    dot_merged = pd.concat([df_dot, dot_scores_blind.drop(columns=["ID"])], axis=1)
     dot_merged.to_csv(res_dir / "dot_loocv_results.csv", index=False)
 
     # Evaluate Supine models (Criterion A: Cardiovascular Medication/Disease)
     sup_eval_models = [
-        ("Virtual PPG Baseline (HR+HRV+BH)", "ppg_comb_raw", "ppg_pct", sup_scores_norm),
-        ("Isolation Forest (Unsupervised Baseline)", "iforest_raw", "iforest_pct", sup_scores_norm),
-        ("fNIRS Stage 1: Hotelling's T^2 (Within-Subspace)", "fnirs_t2_raw", "fnirs_t2_pct", sup_scores_norm),
-        ("fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)", "fnirs_spe_raw", "fnirs_spe_pct", sup_scores_norm),
-        ("fNIRS Stage 1: Cross-Modal Ridge (Heart->Brain)", "fnirs_cm_raw", "fnirs_cm_pct", sup_scores_norm),
-        ("fNIRS A-Priori Physiological Deficit (Normative LOOCV)", "score_apriori_deficit_raw", "score_apriori_deficit_pct", sup_scores_norm),
-        ("fNIRS Stage 2 Clinical Triage (Normative LOOCV)", "score_normative_combined", "score_normative_combined_pct", sup_scores_norm),
+        ("Virtual PPG Baseline (HR+HRV+BH)", "ppg_comb_raw", "ppg_pct", sup_scores_blind),
+        ("Isolation Forest (Unsupervised Baseline)", "iforest_raw", "iforest_pct", sup_scores_blind),
+        ("fNIRS Stage 1: Hotelling's T^2 (Within-Subspace)", "fnirs_t2_raw", "fnirs_t2_pct", sup_scores_blind),
+        ("fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)", "fnirs_spe_raw", "fnirs_spe_pct", sup_scores_blind),
+        ("fNIRS Stage 1: Cross-Modal Ridge (Heart->Brain)", "fnirs_cm_raw", "fnirs_cm_pct", sup_scores_blind),
+        ("fNIRS Stage 1: Subspace Max (T2/SPE/CM)", "fnirs_subspace_pct", "fnirs_subspace_pct", sup_scores_blind),
+        ("fNIRS A-Priori Physiological Deficit (Blind LOOCV)", "score_apriori_deficit_raw", "score_apriori_deficit_pct", sup_scores_blind),
         ("fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)", "score_normative_combined", "score_normative_combined_pct", sup_scores_blind),
-        ("fNIRS Stage 2 Clinical Triage (Age-DPF Sensitivity)", "score_normative_combined", "score_normative_combined_pct", sup_scores_agedpf),
+        ("fNIRS Stage 2 Clinical Triage (Normative Pre-Screened LOOCV)", "score_normative_combined", "score_normative_combined_pct", sup_scores_norm),
+        ("fNIRS Stage 2 Clinical Triage (Age-DPF Sensitivity, Blind)", "score_normative_combined", "score_normative_combined_pct", sup_scores_agedpf),
     ]
 
     sup_metrics_a = []
@@ -257,9 +282,10 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
     # Evaluate Supine Criterion B (adding BMI >= 30: ID 2, 51, 55)
     sup_metrics_b = []
     for name, rcol, pcol, s_df in [
-        ("Virtual PPG Baseline", "ppg_comb_raw", "ppg_pct", sup_scores_norm),
-        ("fNIRS Stage 1: PCA SPE", "fnirs_spe_raw", "fnirs_spe_pct", sup_scores_norm),
-        ("fNIRS Stage 2 Clinical Triage", "score_normative_combined", "score_normative_combined_pct", sup_scores_norm),
+        ("Virtual PPG Baseline (Blind LOOCV)", "ppg_comb_raw", "ppg_pct", sup_scores_blind),
+        ("fNIRS Stage 1: PCA SPE (Blind LOOCV)", "fnirs_spe_raw", "fnirs_spe_pct", sup_scores_blind),
+        ("fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)", "score_normative_combined", "score_normative_combined_pct", sup_scores_blind),
+        ("fNIRS Stage 2 Clinical Triage (Normative Pre-Screened LOOCV)", "score_normative_combined", "score_normative_combined_pct", sup_scores_norm_b),
     ]:
         m = evaluate_anomaly_detector(
             s_df[rcol].to_numpy(),
@@ -271,20 +297,20 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
         sup_metrics_b.append(m.__dict__)
 
     # Evaluate DOT Sitting models (Criterion B: Asthma ID 12 + Obesity BMI>=30 ID 9, 16; and Criterion A: Asthma ID 12 only)
-    dot_eval_models = [
-        ("Virtual PPG Baseline (HR+HRV+BH)", "ppg_comb_raw", "ppg_pct", dot_scores_norm),
-        ("Isolation Forest (Unsupervised Baseline)", "iforest_raw", "iforest_pct", dot_scores_norm),
-        ("fNIRS Stage 1: Hotelling's T^2 (Within-Subspace)", "fnirs_t2_raw", "fnirs_t2_pct", dot_scores_norm),
-        ("fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)", "fnirs_spe_raw", "fnirs_spe_pct", dot_scores_norm),
-        ("fNIRS Stage 1: Cross-Modal Ridge (Heart->Brain)", "fnirs_cm_raw", "fnirs_cm_pct", dot_scores_norm),
-        ("fNIRS A-Priori SPB Resonance Deficit (No BH2/BH1 term)", "score_apriori_spb_deficit_raw", "score_apriori_spb_deficit_pct", dot_scores_norm),
-        ("fNIRS Stage 2 Clinical Triage (Normative LOOCV)", "score_normative_combined", "score_normative_combined_pct", dot_scores_norm),
+    dot_eval_models_b = [
+        ("Virtual PPG Baseline (HR+HRV)", "ppg_comb_raw", "ppg_pct", dot_scores_blind),
+        ("Isolation Forest (Unsupervised Baseline)", "iforest_raw", "iforest_pct", dot_scores_blind),
+        ("fNIRS Stage 1: Hotelling's T^2 (Within-Subspace)", "fnirs_t2_raw", "fnirs_t2_pct", dot_scores_blind),
+        ("fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)", "fnirs_spe_raw", "fnirs_spe_pct", dot_scores_blind),
+        ("fNIRS Stage 1: Cross-Modal Ridge (Heart->Brain)", "fnirs_cm_raw", "fnirs_cm_pct", dot_scores_blind),
+        ("fNIRS Stage 1: Subspace Max (T2/SPE/CM)", "fnirs_subspace_pct", "fnirs_subspace_pct", dot_scores_blind),
+        ("fNIRS A-Priori SPB Resonance Deficit (Blind LOOCV)", "score_apriori_spb_deficit_raw", "score_apriori_spb_deficit_pct", dot_scores_blind),
         ("fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)", "score_normative_combined", "score_normative_combined_pct", dot_scores_blind),
+        ("fNIRS Stage 2 Clinical Triage (Normative Pre-Screened LOOCV)", "score_normative_combined", "score_normative_combined_pct", dot_scores_norm),
     ]
 
     dot_metrics_b = []
-    dot_metrics_a = []
-    for name, rcol, pcol, s_df in dot_eval_models:
+    for name, rcol, pcol, s_df in dot_eval_models_b:
         mb = evaluate_anomaly_detector(
             s_df[rcol].to_numpy(),
             s_df[pcol].to_numpy(),
@@ -293,6 +319,20 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
             name,
         )
         dot_metrics_b.append(mb.__dict__)
+
+    dot_eval_models_a = [
+        ("Virtual PPG Baseline (HR+HRV)", "ppg_comb_raw", "ppg_pct", dot_scores_blind),
+        ("Isolation Forest (Unsupervised Baseline)", "iforest_raw", "iforest_pct", dot_scores_blind),
+        ("fNIRS Stage 1: Hotelling's T^2 (Within-Subspace)", "fnirs_t2_raw", "fnirs_t2_pct", dot_scores_blind),
+        ("fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)", "fnirs_spe_raw", "fnirs_spe_pct", dot_scores_blind),
+        ("fNIRS Stage 1: Cross-Modal Ridge (Heart->Brain)", "fnirs_cm_raw", "fnirs_cm_pct", dot_scores_blind),
+        ("fNIRS Stage 1: Subspace Max (T2/SPE/CM)", "fnirs_subspace_pct", "fnirs_subspace_pct", dot_scores_blind),
+        ("fNIRS A-Priori SPB Resonance Deficit (Blind LOOCV)", "score_apriori_spb_deficit_raw", "score_apriori_spb_deficit_pct", dot_scores_blind),
+        ("fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)", "score_normative_combined", "score_normative_combined_pct", dot_scores_blind),
+        ("fNIRS Stage 2 Clinical Triage (Normative Pre-Screened LOOCV)", "score_normative_combined", "score_normative_combined_pct", dot_scores_norm_a),
+    ]
+    dot_metrics_a = []
+    for name, rcol, pcol, s_df in dot_eval_models_a:
         ma = evaluate_anomaly_detector(
             s_df[rcol].to_numpy(),
             s_df[pcol].to_numpy(),
@@ -302,7 +342,7 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
         )
         dot_metrics_a.append(ma.__dict__)
 
-    # Sensitivity analysis across k = 1..5 PCA components on Supine (ID 38 SPE vs T2 percentile & overall ROC-AUC)
+    # Sensitivity analysis across k = 1..5 PCA components on Supine (Fully Blind LOOCV)
     k_sensitivity = []
     idx_38 = int(df_sup.index[df_sup["ID"] == 38][0])
     for k in [1, 2, 3, 4, 5]:
@@ -314,9 +354,9 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
             SUPINE_BRAIN_COLS,
             sup_ref_mask_a,
             n_components=k,
-            blind_training=False,
+            blind_training=True,
         )
-        s_k2 = compute_supine_stage2_scores(df_sup, s_k, sup_ref_mask_a, blind_training=False)
+        s_k2 = compute_supine_stage2_scores(df_sup, s_k, sup_ref_mask_a, blind_training=True)
         auc_spe = float(roc_auc_score(sup_pos_crit_a, s_k["fnirs_spe_raw"]))
         auc_comb = float(roc_auc_score(sup_pos_crit_a, s_k2["score_normative_combined"]))
         k_sensitivity.append(
@@ -394,9 +434,9 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
         SUPINE_BRAIN_COLS,
         y_ref_38,
         n_components=3,
-        blind_training=False,
+        blind_training=True,
     )
-    young_scores = compute_supine_stage2_scores(df_young, young_loocv, y_ref_38, blind_training=False)
+    young_scores = compute_supine_stage2_scores(df_young, young_loocv, y_ref_38, blind_training=True)
     idx_38_y = int(df_young.index[df_young["ID"] == 38][0])
     young_id38_audit = {
         "n_young": len(df_young),

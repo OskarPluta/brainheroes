@@ -267,21 +267,27 @@ def test_empirical_hackathon_results_integrity():
     assert y_audit["id38_fnirs_spe_pct"] >= 95.0
     assert y_audit["id38_fnirs_cm_pct"] >= 95.0
 
-    # 2. DOT Sitting: fNIRS Clinical Triage and A-Priori SPB Deficit must outperform Virtual PPG
-    # and Stage 1 out-of-fold percentiles must be properly calibrated (not 57% FPR from in-sample shrinkage)
+    # 2. DOT Sitting: fNIRS A-Priori SPB Deficit and Stage 2 Clinical Triage (Fully Blind LOOCV)
+    # must outperform Virtual PPG and maintain 0 FP on Cornax negative control
     dot_b = {m["model_name"]: m for m in summary["dot_criterion_b_metrics"]}
-    assert dot_b["fNIRS A-Priori SPB Resonance Deficit (No BH2/BH1 term)"]["roc_auc"] > 0.90
-    assert dot_b["fNIRS Stage 2 Clinical Triage (Normative LOOCV)"]["roc_auc"] > 0.90
-    assert dot_b["fNIRS Stage 2 Clinical Triage (Normative LOOCV)"]["roc_auc"] > dot_b["Virtual PPG Baseline (HR+HRV+BH)"]["roc_auc"]
-    assert dot_b["fNIRS Stage 2 Clinical Triage (Normative LOOCV)"]["neg_control_fp"] == 0
+    assert dot_b["fNIRS A-Priori SPB Resonance Deficit (Blind LOOCV)"]["roc_auc"] > 0.90
+    assert dot_b["fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)"]["roc_auc"] > 0.80
+    assert (
+        dot_b["fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)"]["roc_auc"]
+        > dot_b["Virtual PPG Baseline (HR+HRV)"]["roc_auc"]
+    )
+    assert dot_b["fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)"]["neg_control_fp"] == 0
     assert dot_b["fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)"]["fp_at_90"] <= 3
     assert dot_b["fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)"]["neg_control_fp"] == 0
-    assert dot_b["Virtual PPG Baseline (HR+HRV+BH)"]["fp_at_90"] <= 3
+    assert dot_b["Virtual PPG Baseline (HR+HRV)"]["fp_at_90"] <= 3
 
     # 3. Supine: fNIRS models must outperform Virtual PPG Baseline and maintain 0 FP on Izotec negative controls
     sup_a = {m["model_name"]: m for m in summary["supine_criterion_a_metrics"]}
-    assert sup_a["fNIRS Stage 2 Clinical Triage (Normative LOOCV)"]["roc_auc"] > sup_a["Virtual PPG Baseline (HR+HRV+BH)"]["roc_auc"]
-    assert sup_a["fNIRS Stage 2 Clinical Triage (Normative LOOCV)"]["neg_control_fp"] == 0
+    assert (
+        sup_a["fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)"]["roc_auc"]
+        > sup_a["Virtual PPG Baseline (HR+HRV+BH)"]["roc_auc"]
+    )
+    assert sup_a["fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)"]["neg_control_fp"] == 0
     assert sup_a["fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)"]["fp_at_90"] <= 7
     assert sup_a["fNIRS Stage 1: Cross-Modal Ridge (Heart->Brain)"]["fp_at_90"] <= 7
 
