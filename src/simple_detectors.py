@@ -18,9 +18,14 @@ Age and BMI are never used as features.
 from __future__ import annotations
 
 import json
+import os
 import warnings
 from pathlib import Path
 from typing import Callable
+
+# Prevent BLAS/OpenMP thread oversubscription inside joblib Loky workers.
+for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_var, "1")
 
 import numpy as np
 import pandas as pd
