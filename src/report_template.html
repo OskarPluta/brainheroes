@@ -1,0 +1,434 @@
+<title>Dwie flagi fNIRS</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one reading column (max 940px), figures on a raised surface, the idea first, then method, then both cohorts. */
+:root{
+  --bg:#f6f7f9; --surface:#fcfcfb; --ink:#12161f; --ink2:#4a5060; --muted:#737887;
+  --line:#dfe2e8; --grid:#e8eaef; --ref:#a3a8b4;
+  --s1:#2a78d6; --s2:#eb6834; --soft:#e9f0fa;
+  --display:"Space Grotesk","Segoe UI",system-ui,sans-serif;
+  --body:"Inter","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121417; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c4c9; --muted:#8f939e;
+  --line:#2f3238; --grid:#26292e; --ref:#6b707b;
+  --s1:#3987e5; --s2:#d95926; --soft:#1b2534; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#121417; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c4c9; --muted:#8f939e;
+  --line:#2f3238; --grid:#26292e; --ref:#6b707b;
+  --s1:#3987e5; --s2:#d95926; --soft:#1b2534; color-scheme:dark }
+
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6}
+.wrap{max-width:940px;margin:0 auto;padding-block:40px 72px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:56px}
+section{display:flex;flex-direction:column;gap:20px;min-width:0}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15;font-weight:600}
+h1{font-size:clamp(30px,5vw,44px);letter-spacing:-.02em}
+h2{font-size:26px;letter-spacing:-.01em;padding-top:20px;border-top:1px solid var(--line)}
+h3{font-size:17px}
+p{margin:0;max-width:66ch;color:var(--ink2)}
+p strong,li strong{color:var(--ink);font-weight:600}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lead{font-size:19px;color:var(--ink);max-width:62ch}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:4px}
+.tile b{font-family:var(--display);font-size:34px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile span{font-size:13px;color:var(--ink2);line-height:1.4}
+.tile small{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+figure h3+p{font-size:14px;color:var(--muted);max-width:none}
+figcaption{font-size:13px;color:var(--muted);line-height:1.5}
+.scroll{overflow-x:auto}
+svg{display:block;width:100%;height:auto}
+svg text{font-family:var(--body);font-size:12px;fill:var(--muted)}
+svg text.lab{fill:var(--ink);font-weight:600}
+svg text.val{fill:var(--ink2);font-family:var(--mono);font-size:11.5px}
+svg text.dia{fill:var(--ink);font-size:13px}
+svg text.dias{fill:var(--muted);font-size:11.5px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.two>*{min-width:0}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--ink2)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.legend i.d{border-radius:1px;transform:rotate(45deg) scale(.85)}
+.legend i.ring{background:transparent;border:2px solid var(--ink);width:13px;height:13px;vertical-align:-3px}
+
+.pipe{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+.step{flex:1 1 150px;min-width:0;border:1px solid var(--line);border-radius:6px;padding:12px;background:var(--bg);display:flex;flex-direction:column;gap:4px}
+.step small{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
+.step b{font-family:var(--display);font-size:15px;font-weight:600}
+.step span{font-size:12.5px;color:var(--ink2);line-height:1.45}
+.step.key{background:var(--soft);border-color:var(--s1)}
+
+/* worked example of the rule */
+.rule{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.case{border:1px solid var(--line);border-radius:6px;padding:14px;background:var(--bg);display:flex;flex-direction:column;gap:10px;min-width:0}
+.case h4{margin:0;font-family:var(--display);font-size:15px;font-weight:600}
+.gauge{display:grid;grid-template-columns:104px 1fr 40px;gap:8px;align-items:center;font-size:13px;color:var(--ink2)}
+.gauge .t{height:10px;background:var(--grid);border-radius:5px;position:relative}
+.gauge .t i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--ref)}
+.gauge.win .t i{background:var(--s1)}
+.gauge.win{color:var(--ink);font-weight:600}
+.gauge .v{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.case .res{font-size:13.5px;color:var(--ink);border-top:1px solid var(--line);padding-top:8px}
+
+.bars{display:grid;grid-template-columns:minmax(120px,240px) 1fr 52px;gap:8px 12px;align-items:center;font-size:13.5px}
+.bars .n{color:var(--ink2);line-height:1.3;min-width:0}
+.bars .n.hl{color:var(--ink);font-weight:600}
+.bars .t{height:16px;position:relative;border-left:1px solid var(--muted);
+  background:linear-gradient(to right,transparent calc(50% - .5px),var(--muted) calc(50% - .5px),var(--muted) calc(50% + .5px),transparent calc(50% + .5px))}
+.bars .t i{position:absolute;left:0;top:2px;bottom:2px;background:var(--s1);border-radius:0 4px 4px 0}
+.bars .t i.q{background:var(--ref)}
+.bars .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.axisnote{display:grid;grid-template-columns:minmax(120px,240px) 1fr 52px;gap:0 12px;font-size:11.5px;color:var(--muted)}
+.axisnote div{display:flex;justify-content:space-between}
+
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+td.r,th.r{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td small{color:var(--muted);font-size:12.5px}
+.pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap;margin:0 4px 2px 0}
+.pill.on{border-color:var(--ink);color:var(--ink);font-weight:600}
+tr.pos td:first-child{font-weight:600}
+details{font-size:13px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--ink2)}
+details summary:focus-visible{outline:2px solid var(--s1);outline-offset:3px}
+details table{font-size:12.5px;margin-top:8px}
+ul{margin:0;padding-left:20px;max-width:66ch;color:var(--ink2);display:flex;flex-direction:column;gap:8px}
+.note{background:var(--soft);border-radius:6px;padding:16px;font-size:15px;color:var(--ink);max-width:none}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12.5px;line-height:1.45;padding:7px 10px;border-radius:5px;z-index:20;max-width:240px;white-space:pre-line}
+#tip[hidden]{display:none}
+.hit{fill:transparent;cursor:default}
+footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+</style>
+<!--BODY-->
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:18px">
+  <div class="eyebrow">Heroes of the Brain 2026 · Breath, Brain &amp; Body · raport z wyników</div>
+  <h1>Dwie flagi: deficyt i rozprzężenie w sygnale fNIRS</h1>
+  <p class="lead">Uczymy model, jak wygląda typowa odpowiedź serca i kory w spoczynku, przy bezdechu i przy wolnym oddychaniu. Każda osoba dostaje dwie niezależne oceny, a alarm wyznacza wyższa z nich. Model nie widzi żadnych etykiet, a mimo to na górze listy lądują osoby na lekach kardiologicznych oraz osoby z astmą i otyłością.</p>
+  <div class="tiles">
+    <div class="tile"><small>Zbiór 1 · 58 osób</small><b>0,93</b><span>ROC-AUC dla 4 osób na lekach kardiologicznych; 0,89–0,94 dla innych ustawień PCA</span></div>
+    <div class="tile"><small>Zbiór 2 · 17 osób</small><b>0,94</b><span>ROC-AUC dla astmy i BMI ≥ 30 (3 osoby); 0,89–0,96 dla innych ustawień PCA</span></div>
+    <div class="tile"><small>Zbiór 1 · próg 90</small><b>3 z 4</b><span>osób powyżej progu, przy 2 alarmach wśród 54 pozostałych</span></div>
+    <div class="tile"><small>Zbiór 2 · ranking</small><b>4 z 17</b><span>tyle osób trzeba przejrzeć od góry listy, żeby mieć wszystkie 3</span></div>
+  </div>
+</header>
+
+<section>
+  <h2>Pomysł: nie uśredniamy</h2>
+  <p>Są dwa różne sposoby, w jakie profil może odbiegać od normy. <strong>Deficyt</strong>: odpowiedź jest stłumiona (niska zmienność tętna, słabe fale Mayera, słaby rezonans przy wolnym oddychaniu). <strong>Rozprzężenie</strong>: pojedyncze cechy wyglądają zwyczajnie, ale nie pasują do siebie tak, jak u pozostałych osób.</p>
+  <p>Średnia z obu ocen gubi osoby, które mają tylko jeden z tych objawów. Dlatego alarm to po prostu wyższa z dwóch ocen.</p>
+  <figure>
+    <h3>Jak działa reguła na dwóch osobach ze Zbioru 1</h3>
+    <div class="rule">
+      <div class="case"><h4>ID 38 · 29 lat, beta-bloker</h4>
+        <div class="gauge"><span>Deficyt</span><div class="t"><i style="width:43.9%"></i></div><span class="v">44</span></div>
+        <div class="gauge win"><span>Rozprzężenie</span><div class="t"><i style="width:100%"></i></div><span class="v">100</span></div>
+        <div class="res">Alarm = 100. Średnia dałaby 72 i brak alarmu.</div></div>
+      <div class="case"><h4>ID 49 · 70 lat, leki na nadciśnienie</h4>
+        <div class="gauge win"><span>Deficyt</span><div class="t"><i style="width:96.5%"></i></div><span class="v">96</span></div>
+        <div class="gauge"><span>Rozprzężenie</span><div class="t"><i style="width:38.6%"></i></div><span class="v">39</span></div>
+        <div class="res">Alarm = 96. Średnia dałaby 68 i brak alarmu.</div></div>
+    </div>
+    <figcaption>Liczby to percentyle względem pozostałych uczestników. Dwie osoby, dwa różne powody, ten sam wynik: obie trafiają na górę listy.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Dane</h2>
+  <div class="scroll"><table>
+    <tr><th></th><th>Zbiór 1: pozycja leżąca</th><th>Zbiór 2: pozycja siedząca (DOT)</th></tr>
+    <tr><td>Uczestnicy</td><td>60, w analizie 58 z kompletem nagrań</td><td>17</td></tr>
+    <tr><td>Pomiar</td><td>141,79 Hz, optody krótkie i długie</td><td>190 kanałów, 18,27 Hz</td></tr>
+    <tr><td>Protokół</td><td>spoczynek + próba bezdechu</td><td>4× spoczynek, 4× wolne oddychanie 0,1 Hz, 2× bezdech</td></tr>
+    <tr><td>Wiek</td><td>18–78 lat, mediana 22</td><td>20–29 lat</td></tr>
+    <tr><td>Kogo chcemy zobaczyć na górze</td><td>4 osoby na lekach kardiologicznych: beta-bloker (29 lat) i trzy osoby na lekach na nadciśnienie (70–78 lat)</td><td>3 osoby: astma oraz dwie z BMI ≥ 30</td></tr>
+    <tr><td>Cechy</td><td>12 (6 spoczynkowych, 6 z bezdechu)</td><td>13 (tętno, rezonans 0,1 Hz, bezdech)</td></tr>
+  </table></div>
+  <p>Dane są małe, niezbalansowane i zaszumione. Dlatego pokazujemy ranking i pojedyncze osoby, a nie tylko jedną liczbę.</p>
+</section>
+
+<section>
+  <h2>Metoda</h2>
+  <figure>
+    <h3>Od surowego sygnału do alarmu</h3>
+    <div class="pipe">
+      <div class="step"><small>1 · SYGNAŁ</small><b>Nagranie SNIRF</b><span>760 i 850 nm, kanały krótkie (skóra) i długie (kora)</span></div>
+      <div class="step"><small>2 · CZYSZCZENIE</small><b>Jakość i artefakty</b><span>kontrola SCI, naprawa skoków (TDDR), regresja kanałów krótkich, prawo Beera-Lamberta</span></div>
+      <div class="step"><small>3 · CECHY</small><b>Profil osoby</b><span>tętno i jego zmienność, fale Mayera 0,1 Hz, spójność półkul, odpowiedź na bezdech</span></div>
+      <div class="step key"><small>4 · DWIE FLAGI</small><b>Deficyt i rozprzężenie</b><span>jednostronne odchylenia w stronę stłumienia oraz błąd rekonstrukcji PCA</span></div>
+      <div class="step key"><small>5 · ALARM</small><b>Wyższa z dwóch</b><span>skalibrowana na ocenach poza próbą; próg 90</span></div>
+    </div>
+  </figure>
+  <div class="two">
+    <figure>
+      <h3>Czym jest rozprzężenie</h3>
+      <p>Odległość od typowego wzorca zależności między cechami.</p>
+      <svg viewBox="0 0 420 250" role="img" aria-label="Schemat: punkt leżący nad płaszczyzną typowych zależności ma wysokie rozprzężenie">
+        <polygon points="40,190 250,225 390,130 180,95" fill="var(--soft)" stroke="var(--line)"/>
+        <text class="dias" x="52" y="208">typowy wzorzec zależności (PCA)</text>
+        <g fill="var(--ref)"><circle cx="200" cy="160" r="4"/><circle cx="222" cy="150" r="4"/><circle cx="186" cy="172" r="4"/><circle cx="236" cy="168" r="4"/><circle cx="212" cy="178" r="4"/><circle cx="170" cy="150" r="4"/><circle cx="250" cy="152" r="4"/><circle cx="226" cy="186" r="4"/><circle cx="330" cy="142" r="4"/></g>
+        <text class="dias" x="292" y="126">skrajna wartość,</text><text class="dias" x="292" y="112">ale wzorzec zachowany:</text><text class="dias" x="292" y="98">niskie rozprzężenie</text>
+        <line x1="150" y1="158" x2="150" y2="58" stroke="var(--s2)" stroke-width="2" stroke-dasharray="5 4"/>
+        <circle cx="150" cy="158" r="3" fill="var(--s2)"/>
+        <rect x="143" y="45" width="13" height="13" fill="var(--s2)" stroke="var(--surface)" stroke-width="2" transform="rotate(45 149.5 51.5)"/>
+        <text class="dia" x="166" y="48">wysokie rozprzężenie</text>
+        <text class="dias" x="166" y="64">cechy przestają do siebie pasować</text>
+      </svg>
+    </figure>
+    <figure>
+      <h3>Zagnieżdżona walidacja</h3>
+      <p>Oceniana osoba nie trafia ani do modelu, ani do rozkładu odniesienia.</p>
+      <svg viewBox="0 0 420 250" role="img" aria-label="Schemat zagnieżdżonej walidacji leave-one-out">
+        <text class="dias" x="10" y="22">pętla zewnętrzna: odkładamy osobę i</text>
+        <g id="rowA"></g>
+        <text class="dias" x="10" y="96">pętla wewnętrzna: z pozostałych odkładamy po kolei osobę m</text>
+        <g id="rowB"></g>
+        <line x1="200" y1="150" x2="200" y2="176" stroke="var(--muted)" stroke-width="1.5"/><polygon points="195,174 205,174 200,182" fill="var(--muted)"/>
+        <rect x="70" y="186" width="260" height="30" rx="4" fill="var(--soft)" stroke="var(--s1)"/>
+        <text class="dia" x="200" y="206" text-anchor="middle">rozkład ocen poza próbą</text>
+        <text class="dias" x="200" y="238" text-anchor="middle">percentyl osoby i = jej miejsce w tym rozkładzie</text>
+      </svg>
+    </figure>
+  </div>
+  <p>Nie ma wag do strojenia ani list osób wyłączonych z nauki. Jedyny parametr to liczba składowych PCA (k = 3) i sprawdzamy, co się dzieje dla innych wartości.</p>
+</section>
+
+<section>
+  <h2>Zbiór 1: leki kardiologiczne</h2>
+  <p>Trzy z czterech osób przekraczają próg 90, przy dwóch alarmach wśród 54 pozostałych. ID 38 łapie flaga rozprzężenia, a ID 48 i 49 flaga deficytu. ID 60 jest tuż pod progiem deficytu (88) i zajmuje 16. miejsce na liście.</p>
+  <div class="legend">
+    <span><i style="background:var(--ref)"></i>pozostali uczestnicy (54)</span>
+    <span><i style="background:var(--s1)"></i>leki na nadciśnienie, 70–78 lat</span>
+    <span><i class="d" style="background:var(--s2)"></i>beta-bloker, 29 lat</span>
+    <span><i class="ring"></i>alarm ≥ 90</span>
+  </div>
+  <figure>
+    <h3>Każda osoba na dwóch osiach</h3>
+    <p>Poziomo: percentyl deficytu. Pionowo: percentyl rozprzężenia. Alarm włącza się przy prawej albo górnej krawędzi.</p>
+    <svg id="scSup" viewBox="0 0 640 440" role="img" aria-label="Wykres punktowy: deficyt wobec rozprzężenia dla 58 osób"></svg>
+    <figcaption>Osoby z grupy wyróżnionej leżą przy krawędziach, a nie w rogu: każda ma zwykle tylko jeden z dwóch objawów.</figcaption>
+  </figure>
+  <figure>
+    <h3>Lista do przejrzenia</h3>
+    <p>Góra rankingu i wszystkie osoby z grupy wyróżnionej. Przy każdej trzy najbardziej odstające cechy (odchylenie w jednostkach z).</p>
+    <div class="scroll" id="listSup"></div>
+  </figure>
+  <details><summary>Tabela wartości dla wszystkich 58 osób</summary><div class="scroll" id="tabSup"></div></details>
+
+  <figure>
+    <h3>Co daje połączenie serca i kory</h3>
+    <p>Ten sam przepis (dwie flagi, wyższa wygrywa) na samych cechach tętna, samych cechach korowych i na pełnym profilu. Kreska w połowie: poziom losowy 0,5.</p>
+    <div class="bars" id="barsSup"></div>
+    <div class="axisnote"><span></span><div><span>0</span><span>0,5</span><span>1</span></div><span></span></div>
+    <figcaption>Ani samo tętno, ani sama kora nie wystarczają. Wynik pojawia się dopiero wtedy, gdy model widzi oba naraz. Cechy tętna pochodzą z kanałów fNIRS, więc to porównanie wewnątrz jednego urządzenia.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Obserwacja: uczestnik ID 38</h2>
+  <p>To jedyna młoda osoba na leku kardiologicznym, więc pozwala spojrzeć na wynik bez wpływu wieku. Po ograniczeniu analizy do 55 osób w wieku do 42 lat ma <strong>rozprzężenie na 100. percentylu</strong> i jest na samej górze listy (remis z jedną osobą), choć deficyt ma przeciętny (46).</p>
+  <p>Wyróżnia go nietypowo silna oscylacja Mayera względem oddechowej przy zwyczajnym tętnie i zwyczajnym czasie bezdechu. To jedna osoba, więc traktujemy to jako trop wart sprawdzenia na większej grupie.</p>
+</section>
+
+<section>
+  <h2>Zbiór 2: rezonans przy wolnym oddychaniu</h2>
+  <p>Ten sam przepis, inne urządzenie i inny protokół. Deficytem jest tu słabe wzmocnienie mocy 0,1 Hz przy wolnym oddychaniu. Wszystkie trzy osoby są w pierwszej czwórce z 17.</p>
+  <div class="legend">
+    <span><i style="background:var(--ref)"></i>pozostali uczestnicy (14)</span>
+    <span><i style="background:var(--s1)"></i>astma (ID 12)</span>
+    <span><i class="d" style="background:var(--s2)"></i>BMI ≥ 30 (ID 9, 16)</span>
+    <span><i class="ring"></i>alarm ≥ 90</span>
+  </div>
+  <div class="two">
+    <figure>
+      <h3>Każda osoba na dwóch osiach</h3>
+      <p>Poziomo: deficyt rezonansu. Pionowo: rozprzężenie.</p>
+      <svg id="scDot" viewBox="0 0 520 440" role="img" aria-label="Wykres punktowy: deficyt wobec rozprzężenia dla 17 osób"></svg>
+      <figcaption>Tutaj pracuje głównie flaga deficytu: trzy najwyższe wartości należą do trzech wyróżnionych osób.</figcaption>
+    </figure>
+    <figure>
+      <h3>Wzmocnienie mocy 0,1 Hz</h3>
+      <p>Wolne oddychanie względem spoczynku, pierwsza sesja, skala logarytmiczna.</p>
+      <svg id="lol" viewBox="0 0 520 390" role="img" aria-label="Wzmocnienie 0,1 Hz dla 17 osób; trzy najniższe wartości należą do grupy wyróżnionej"></svg>
+      <figcaption>Surowa cecha stojąca za flagą deficytu. 1× oznacza brak wzmocnienia.</figcaption>
+    </figure>
+  </div>
+  <figure>
+    <h3>Lista do przejrzenia</h3>
+    <div class="scroll" id="listDot"></div>
+    <figcaption>Przy 17 osobach percentyle skaczą co około 6 punktów, więc próg 90 przekraczają tylko dwie osoby. Ranking jest tu bardziej miarodajny niż próg.</figcaption>
+  </figure>
+  <details><summary>Tabela wartości dla wszystkich 17 osób</summary><div class="scroll" id="tabDot"></div></details>
+  <figure>
+    <h3>Flagi osobno i razem</h3>
+    <div class="bars" id="barsDot"></div>
+    <div class="axisnote"><span></span><div><span>0</span><span>0,5</span><span>1</span></div><span></span></div>
+    <figcaption>W tym zbiorze sam deficyt rezonansu porządkuje osoby idealnie. Flaga rozprzężenia dokłada jedną osobę bez rozpoznania (ID 11), więc wynik łączny jest nieco niższy. Zostawiamy tę samą regułę w obu zbiorach, zamiast wybierać lepszą po fakcie.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Stabilność</h2>
+  <div class="two">
+    <figure>
+      <h3>Liczba składowych PCA</h3>
+      <p>ROC-AUC alarmu dla k od 1 do 5. W raporcie używamy k = 3.</p>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Zbiór 1</span><span><i class="d" style="background:var(--s2)"></i>Zbiór 2</span></div>
+      <svg id="lineK" viewBox="0 0 520 250" role="img" aria-label="Wykres liniowy: AUC w obu zbiorach pozostaje między 0,89 a 0,96 dla k od 1 do 5"></svg>
+      <figcaption>Wynik nie wisi na jednym ustawieniu: w obu zbiorach zostaje między 0,89 a 0,96.</figcaption>
+    </figure>
+    <figure>
+      <h3>Alarmy przy progu 90</h3>
+      <div class="scroll" id="tabK"></div>
+      <figcaption>Trafione osoby z grupy wyróżnionej i alarmy wśród pozostałych, dla każdego k.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <h2>Co z tego wynika</h2>
+  <ul>
+    <li><strong>Jedna prosta reguła działa na dwóch różnych urządzeniach</strong> i nie potrzebuje etykiet ani strojenia: 0,93 i 0,94.</li>
+    <li><strong>Dwie flagi łapią różne osoby.</strong> Deficyt wskazuje seniorów na lekach na nadciśnienie oraz osoby z astmą i otyłością. Rozprzężenie wskazuje młodą osobę na beta-blokerze, której żadna pojedyncza cecha nie zdradza.</li>
+    <li><strong>Wartość bierze się z połączenia serca i kory.</strong> Ten sam przepis na samym tętnie daje 0,66, na samej korze 0,77, a razem 0,93.</li>
+    <li><strong>Każdy alarm da się wyjaśnić:</strong> wiadomo, która flaga zadziałała i które cechy odstają.</li>
+  </ul>
+
+  <h3>Zakres wniosków</h3>
+  <ul>
+    <li>Grupy wyróżnione mają 4 i 3 osoby. To pokaz działania, nie pomiar skuteczności.</li>
+    <li>W Zbiorze 1 trzy z czterech osób to jedyni uczestnicy w wieku 70+ i sam wiek porządkuje je równie dobrze (AUC 0,975). Leczenia nie da się tu oddzielić od wieku. Za tym, że to nie tylko wiek, przemawiają ID 38 i Zbiór 2, w którym wszyscy mają 20–29 lat.</li>
+    <li>Na górze listy są też osoby bez leków (w Zbiorze 1 ID 27 i ID 4, w Zbiorze 2 ID 11). Narzędzie wskazuje, komu warto się przyjrzeć, i niczego nie rozpoznaje.</li>
+    <li>ID 60 nie przekracza progu, a dwie osoby z niepełnymi nagraniami (ID 41 i 59) są poza analizą.</li>
+    <li>Tętna w Zbiorze 2 nie oceniamy osobno, bo 18 Hz to za mało na wiarygodną zmienność rytmu.</li>
+    <li>Osie deficytu zostały wybrane przez ludzi znających te dane. Sprawdziliśmy też wariant, w którym flaga rozprzężenia uwzględnia resztę regresji serce → kora: 0,92 w Zbiorze 1 i 0,82 w Zbiorze 2.</li>
+  </ul>
+
+  <h3>Dalsze kroki</h3>
+  <ul>
+    <li>Zamrozić regułę i próg, a potem ocenić je na nowych osobach.</li>
+    <li>Dobrać grupę odniesienia pod względem wieku.</li>
+    <li>Powtórzyć pomiar wzmocnienia 0,1 Hz na większej grupie z astmą i otyłością.</li>
+  </ul>
+  <p class="note">W skrócie: prosty, w pełni ślepy detektor z dwiema flagami stawia właściwe osoby na górze listy w dwóch niezależnych zbiorach i potrafi powiedzieć dlaczego. To dobry punkt wyjścia do sprawdzenia na większej próbie.</p>
+</section>
+
+<footer>Liczby pochodzą z <span class="num">results/two_flag_summary.json</span>, <span class="num">two_flag_supine.csv</span> i <span class="num">two_flag_dot.csv</span>. Odtworzenie: <span class="num">python -m src.two_flag_scoring</span>, potem <span class="num">python -m src.make_two_flag_report</span>.</footer>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+const DATA=__DATA__;
+const SUP=DATA.sup, DOT=DATA.dot, SUM=DATA.sum;
+const NS='http://www.w3.org/2000/svg', pl=n=>String(n).replace('.',','), f1=n=>pl((+n).toFixed(1)).replace(',0','');
+function el(p,t,a,txt){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;p.appendChild(e);return e}
+const tip=document.getElementById('tip');
+function hover(node,text){
+  node.addEventListener('pointerenter',()=>{tip.textContent=text;tip.hidden=false});
+  node.addEventListener('pointermove',e=>{const w=tip.offsetWidth;tip.style.left=Math.max(8,Math.min(e.clientX+14,innerWidth-w-8))+'px';tip.style.top=(e.clientY+14)+'px'});
+  node.addEventListener('pointerleave',()=>{tip.hidden=true});
+}
+function mark(svg,x,y,cat,r){
+  if(cat==='ref') return el(svg,'circle',{cx:x,cy:y,r:r||4,fill:'var(--ref)','fill-opacity':.8});
+  if(cat==='a') return el(svg,'circle',{cx:x,cy:y,r:6,fill:'var(--s1)',stroke:'var(--surface)','stroke-width':2});
+  return el(svg,'rect',{x:x-5.5,y:y-5.5,width:11,height:11,fill:'var(--s2)',stroke:'var(--surface)','stroke-width':2,transform:`rotate(45 ${x} ${y})`});
+}
+const why=p=>p.why.map(w=>`${w[0]} ${w[1]>0?'+':'−'}${pl(Math.abs(w[1]).toFixed(1))}`);
+
+/* deficit vs decoupling scatter */
+function scatter(id,W,rows,cat,info){
+  const svg=document.getElementById(id),H=440,L=40,R=26,T=24,B=46,pw=W-L-R,ph=H-T-B;
+  const X=v=>L+v/100*pw, Y=v=>T+ph-v/100*ph;
+  [0,25,50,75,100].forEach(v=>{
+    el(svg,'line',{x1:L,x2:L+pw,y1:Y(v),y2:Y(v),stroke:'var(--grid)'});
+    el(svg,'line',{x1:X(v),x2:X(v),y1:T,y2:T+ph,stroke:'var(--grid)'});
+    el(svg,'text',{x:L-8,y:Y(v)+4,'text-anchor':'end'},v);
+    el(svg,'text',{x:X(v),y:T+ph+18,'text-anchor':'middle'},v);
+  });
+  el(svg,'text',{x:L+pw/2,y:H-6,'text-anchor':'middle'},'percentyl deficytu');
+  el(svg,'text',{x:L+4,y:T-9},'percentyl rozprzężenia');
+  const order=rows.slice().sort((p,q)=>(cat(p)==='ref'?0:1)-(cat(q)==='ref'?0:1));
+  order.forEach(p=>{
+    const x=X(p.def),y=Y(p.dec),c=cat(p);
+    if(p.flag) el(svg,'circle',{cx:x,cy:y,r:11,fill:'none',stroke:'var(--ink)','stroke-width':1.5});
+    mark(svg,x,y,c);
+    if(c!=='ref'||p.flag){const left=p.def>80;
+      el(svg,'text',{class:c==='ref'?'':'lab',x:x+(left?-15:15),y:y+4,'text-anchor':left?'end':'start'},'ID '+p.id)}
+    hover(el(svg,'circle',{class:'hit',cx:x,cy:y,r:11}),`ID ${p.id} · ${info(p)}\ndeficyt ${f1(p.def)} · rozprzężenie ${f1(p.dec)}\nalarm ${f1(p.alarm)} · miejsce ${p.rank}\n${why(p).join('\n')}`);
+  });
+}
+const catS=p=>p.id===38?'b':[48,49,60].includes(p.id)?'a':'ref';
+const catD=p=>p.id===12?'a':[9,16].includes(p.id)?'b':'ref';
+scatter('scSup',640,SUP,catS,p=>`${p.age} lat${p.med?' · '+p.med:''}`);
+scatter('scDot',520,DOT,catD,p=>`BMI ${pl(p.bmi)}${p.dis?' · '+p.dis:''}`);
+
+/* review lists */
+function list(id,rows,keep,who){
+  const pill=(on,t)=>`<span class="pill${on?' on':''}">${t}</span>`;
+  const r=rows.filter(keep).sort((a,b)=>a.rank-b.rank||b.alarm-a.alarm);
+  document.getElementById(id).innerHTML='<table><tr><th>Osoba</th><th class="r">Miejsce</th><th class="r">Alarm</th><th>Flagi</th><th>Najbardziej odstające cechy</th></tr>'+
+    r.map(p=>`<tr class="${p.pos?'pos':''}"><td>ID ${p.id}<br><small>${who(p)}</small></td><td class="r">${p.rank}</td><td class="r">${f1(p.alarm)}</td><td>${pill(p.def>=90,'deficyt '+f1(p.def))}${pill(p.dec>=90,'rozprzężenie '+f1(p.dec))}</td><td><small>${why(p).join(' · ')}</small></td></tr>`).join('')+'</table>';
+}
+list('listSup',SUP,p=>p.rank<=8||p.pos,p=>`${p.age} lat${p.med?', '+p.med:', bez leków'}`);
+list('listDot',DOT,p=>p.rank<=4||p.pos,p=>`BMI ${pl(p.bmi)}${p.dis?', '+p.dis:''}`);
+
+/* bars */
+function bars(id,rows){const b=document.getElementById(id);rows.forEach(r=>{
+  b.insertAdjacentHTML('beforeend',`<div class="n${r[2]?' hl':''}">${r[0]}</div><div class="t"><i class="${r[3]?'q':''}" style="width:${r[1]*100}%"></i></div><div class="v">${r[1].toFixed(3).replace('.',',')}</div>`)})}
+bars('barsSup',[['Pełny profil: serce + kora',SUM.supine.auc,1],['Tylko cechy korowe',SUM.supine_cortex_only.auc,0,1],['Tylko cechy tętna',SUM.supine_heart_only.auc,0,1],['Pełny profil, sama flaga deficytu',SUM.supine.auc_deficit],['Pełny profil, sama flaga rozprzężenia',SUM.supine.auc_decoupling]]);
+bars('barsDot',[['Alarm: wyższa z dwóch flag',SUM.dot.auc,1],['Sama flaga deficytu rezonansu',SUM.dot.auc_deficit],['Sama flaga rozprzężenia',SUM.dot.auc_decoupling]]);
+
+/* k stability */
+(function(){const svg=document.getElementById('lineK'),W=520,H=250,L=44,R=64,T=20,B=42,pw=W-L-R,ph=H-T-B,K=SUM.k_sensitivity;
+  const X=k=>L+(k-1)/4*pw,Y=v=>T+ph-(v-.8)/.2*ph;
+  [.8,.85,.9,.95,1].forEach(v=>{el(svg,'line',{x1:L,x2:L+pw,y1:Y(v),y2:Y(v),stroke:'var(--grid)'});el(svg,'text',{x:L-8,y:Y(v)+4,'text-anchor':'end'},pl(v.toFixed(2)))});
+  K.forEach(r=>el(svg,'text',{x:X(r.k),y:T+ph+18,'text-anchor':'middle'},r.k));
+  el(svg,'text',{x:L+pw/2,y:H-4,'text-anchor':'middle'},'liczba składowych PCA (k)');
+  [['supine_auc','var(--s1)','a','Zbiór 1'],['dot_auc','var(--s2)','b','Zbiór 2']].forEach(s=>{
+    el(svg,'polyline',{points:K.map(r=>X(r.k)+','+Y(r[s[0]])).join(' '),fill:'none',stroke:s[1],'stroke-width':2,'stroke-linejoin':'round'});
+    K.forEach(r=>{mark(svg,X(r.k),Y(r[s[0]]),s[2]);hover(el(svg,'circle',{class:'hit',cx:X(r.k),cy:Y(r[s[0]]),r:12}),`${s[3]} · k = ${r.k}\nAUC ${pl(r[s[0]].toFixed(3))}`)});
+    const last=K[K.length-1];el(svg,'text',{class:'lab',x:X(5)+12,y:Y(last[s[0]])+4},s[3]);
+  });
+  document.getElementById('tabK').innerHTML='<table><tr><th>k</th><th class="r">Zbiór 1</th><th class="r">Zbiór 2</th></tr>'+K.map(r=>`<tr><td>${r.k}${r.k===3?' (raport)':''}</td><td class="r">${r.supine_tp}/4 · ${r.supine_fp} z 54</td><td class="r">${r.dot_tp}/3 · ${r.dot_fp} z 14</td></tr>`).join('')+'</table>';
+})();
+
+/* DOT lollipop, log scale */
+(function(){const svg=document.getElementById('lol'),W=520,L=104,R=58,T=8,rh=20,d=DOT.slice().sort((a,b)=>a.g1-b.g1),ph=d.length*rh,pw=W-L-R;
+  const X=v=>L+Math.log(v)/Math.log(16)*pw;
+  [1,2,4,8,16].forEach(v=>{el(svg,'line',{x1:X(v),x2:X(v),y1:T,y2:T+ph,stroke:v===1?'var(--muted)':'var(--grid)'});el(svg,'text',{x:X(v),y:T+ph+18,'text-anchor':'middle'},v+'×')});
+  d.forEach((p,i)=>{const y=T+i*rh+rh/2,c=catD(p);
+    const tag=p.id===12?' · astma':c==='b'?' · BMI '+pl(p.bmi):'';
+    el(svg,'text',{class:c==='ref'?'':'lab',x:L-10,y:y+4,'text-anchor':'end'},'ID '+p.id+tag);
+    el(svg,'line',{x1:X(1),x2:X(p.g1),y1:y,y2:y,stroke:c==='ref'?'var(--ref)':c==='a'?'var(--s1)':'var(--s2)','stroke-width':2});
+    mark(svg,X(p.g1),y,c,4.5);
+    el(svg,'text',{class:'val',x:X(p.g1)+11,y:y+4},pl(p.g1.toFixed(2))+'×');
+    hover(el(svg,'rect',{class:'hit',x:0,y:y-rh/2,width:W,height:rh}),`ID ${p.id} · BMI ${pl(p.bmi)}\npierwsza sesja: ${pl(p.g1.toFixed(2))}×\nmediana 4 sesji: ${pl(p.gm.toFixed(2))}×\nw korze, po regresji: ${pl(p.gs.toFixed(2))}×`);
+  });
+})();
+
+/* nested LOOCV diagram rows */
+(function(){const n=17,s=18,g=4,x0=10;
+  const row=(id,y,f)=>{const G=document.getElementById(id);for(let i=0;i<n;i++){const c=f(i);
+    el(G,'rect',{x:x0+i*(s+g),y:y,width:s,height:s,rx:3,fill:c[0],stroke:c[1]||'none','stroke-dasharray':c[2]||''})}};
+  row('rowA',32,i=>i===11?['var(--s2)']:['var(--ref)']);
+  el(document.getElementById('rowA'),'text',{class:'dias',x:x0+11*(s+g)+9,y:68,'text-anchor':'middle'},'i');
+  row('rowB',106,i=>i===11?['none','var(--s2)','3 3']:i===4?['var(--s1)']:['var(--ref)']);
+  el(document.getElementById('rowB'),'text',{class:'dias',x:x0+4*(s+g)+9,y:142,'text-anchor':'middle'},'m');
+  el(document.getElementById('rowB'),'text',{class:'dias',x:x0+11*(s+g)+9,y:142,'text-anchor':'middle'},'poza');
+})();
+
+/* table views */
+function table(id,head,rows){document.getElementById(id).innerHTML='<table><tr>'+head.map((h,i)=>`<th class="${i?'r':''}">${h}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map((c,i)=>`<td class="${i?'r':''}">${typeof c==='number'?f1(c):c}</td>`).join('')+'</tr>').join('')+'</table>'}
+table('tabSup',['ID','Wiek','Deficyt','Rozprzężenie','Alarm','Miejsce'],SUP.map(p=>[p.id,p.age,p.def,p.dec,p.alarm,p.rank]));
+table('tabDot',['ID','BMI','Deficyt','Rozprzężenie','Alarm','Miejsce','Wzmocnienie 0,1 Hz'],DOT.map(p=>[p.id,p.bmi,p.def,p.dec,p.alarm,p.rank,pl(p.g1.toFixed(2))+'×']));
+</script>

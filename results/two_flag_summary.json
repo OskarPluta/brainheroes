@@ -1,0 +1,286 @@
+{
+  "threshold": 90.0,
+  "supine": {
+    "n": 58,
+    "n_pos": 4,
+    "auc": 0.926,
+    "auc_deficit": 0.836,
+    "auc_decoupling": 0.741,
+    "tp": 3,
+    "fp": 2,
+    "positives": [
+      {
+        "id": 38,
+        "deficit_pct": 43.9,
+        "decoupling_pct": 100.0,
+        "alarm_pct": 100.0,
+        "rank": 2
+      },
+      {
+        "id": 48,
+        "deficit_pct": 96.5,
+        "decoupling_pct": 84.2,
+        "alarm_pct": 93.0,
+        "rank": 5
+      },
+      {
+        "id": 49,
+        "deficit_pct": 96.5,
+        "decoupling_pct": 38.6,
+        "alarm_pct": 93.0,
+        "rank": 5
+      },
+      {
+        "id": 60,
+        "deficit_pct": 87.7,
+        "decoupling_pct": 73.7,
+        "alarm_pct": 75.4,
+        "rank": 16
+      }
+    ],
+    "review_to_catch_all": 16
+  },
+  "supine_heart_only": {
+    "n": 58,
+    "n_pos": 4,
+    "auc": 0.664,
+    "auc_deficit": 0.655,
+    "auc_decoupling": 0.796,
+    "tp": 1,
+    "fp": 6,
+    "positives": [
+      {
+        "id": 38,
+        "deficit_pct": 52.6,
+        "decoupling_pct": 84.2,
+        "alarm_pct": 71.9,
+        "rank": 18
+      },
+      {
+        "id": 48,
+        "deficit_pct": 68.4,
+        "decoupling_pct": 84.2,
+        "alarm_pct": 71.9,
+        "rank": 18
+      },
+      {
+        "id": 49,
+        "deficit_pct": 96.5,
+        "decoupling_pct": 96.5,
+        "alarm_pct": 93.0,
+        "rank": 5
+      },
+      {
+        "id": 60,
+        "deficit_pct": 35.1,
+        "decoupling_pct": 49.1,
+        "alarm_pct": 26.3,
+        "rank": 44
+      }
+    ],
+    "review_to_catch_all": 44
+  },
+  "supine_cortex_only": {
+    "n": 58,
+    "n_pos": 4,
+    "auc": 0.766,
+    "auc_deficit": 0.741,
+    "auc_decoupling": 0.535,
+    "tp": 1,
+    "fp": 5,
+    "positives": [
+      {
+        "id": 38,
+        "deficit_pct": 21.1,
+        "decoupling_pct": 61.4,
+        "alarm_pct": 42.1,
+        "rank": 36
+      },
+      {
+        "id": 48,
+        "deficit_pct": 100.0,
+        "decoupling_pct": 64.9,
+        "alarm_pct": 100.0,
+        "rank": 2
+      },
+      {
+        "id": 49,
+        "deficit_pct": 86.0,
+        "decoupling_pct": 36.8,
+        "alarm_pct": 75.4,
+        "rank": 16
+      },
+      {
+        "id": 60,
+        "deficit_pct": 94.7,
+        "decoupling_pct": 52.6,
+        "alarm_pct": 89.5,
+        "rank": 8
+      }
+    ],
+    "review_to_catch_all": 36
+  },
+  "supine_age_auc": 0.975,
+  "supine_young_id38": {
+    "n_young": 55,
+    "deficit_pct": 46.3,
+    "decoupling_pct": 100.0,
+    "alarm_pct": 100.0,
+    "rank": 2
+  },
+  "dot": {
+    "n": 17,
+    "n_pos": 3,
+    "auc": 0.94,
+    "auc_deficit": 1.0,
+    "auc_decoupling": 0.75,
+    "tp": 1,
+    "fp": 1,
+    "positives": [
+      {
+        "id": 9,
+        "deficit_pct": 87.5,
+        "decoupling_pct": 68.8,
+        "alarm_pct": 81.2,
+        "rank": 4
+      },
+      {
+        "id": 12,
+        "deficit_pct": 93.8,
+        "decoupling_pct": 43.8,
+        "alarm_pct": 87.5,
+        "rank": 3
+      },
+      {
+        "id": 16,
+        "deficit_pct": 100.0,
+        "decoupling_pct": 100.0,
+        "alarm_pct": 100.0,
+        "rank": 2
+      }
+    ],
+    "review_to_catch_all": 4
+  },
+  "k_sensitivity": [
+    {
+      "k": 1,
+      "supine_auc": 0.944,
+      "supine_tp": 3,
+      "supine_fp": 1,
+      "dot_auc": 0.893,
+      "dot_tp": 1,
+      "dot_fp": 1
+    },
+    {
+      "k": 2,
+      "supine_auc": 0.935,
+      "supine_tp": 3,
+      "supine_fp": 2,
+      "dot_auc": 0.94,
+      "dot_tp": 1,
+      "dot_fp": 1
+    },
+    {
+      "k": 3,
+      "supine_auc": 0.926,
+      "supine_tp": 3,
+      "supine_fp": 2,
+      "dot_auc": 0.94,
+      "dot_tp": 1,
+      "dot_fp": 1
+    },
+    {
+      "k": 4,
+      "supine_auc": 0.91,
+      "supine_tp": 3,
+      "supine_fp": 3,
+      "dot_auc": 0.964,
+      "dot_tp": 2,
+      "dot_fp": 1
+    },
+    {
+      "k": 5,
+      "supine_auc": 0.891,
+      "supine_tp": 2,
+      "supine_fp": 4,
+      "dot_auc": 0.952,
+      "dot_tp": 2,
+      "dot_fp": 1
+    }
+  ],
+  "variants_k3": {
+    "supine_decoupling_spe_or_ridge": {
+      "n": 58,
+      "n_pos": 4,
+      "auc": 0.921,
+      "auc_deficit": 0.836,
+      "auc_decoupling": 0.683,
+      "tp": 3,
+      "fp": 2,
+      "positives": [
+        {
+          "id": 38,
+          "deficit_pct": 43.9,
+          "decoupling_pct": 100.0,
+          "alarm_pct": 100.0,
+          "rank": 2
+        },
+        {
+          "id": 48,
+          "deficit_pct": 96.5,
+          "decoupling_pct": 84.2,
+          "alarm_pct": 93.0,
+          "rank": 5
+        },
+        {
+          "id": 49,
+          "deficit_pct": 96.5,
+          "decoupling_pct": 38.6,
+          "alarm_pct": 93.0,
+          "rank": 5
+        },
+        {
+          "id": 60,
+          "deficit_pct": 87.7,
+          "decoupling_pct": 73.7,
+          "alarm_pct": 73.7,
+          "rank": 17
+        }
+      ],
+      "review_to_catch_all": 17
+    },
+    "dot_decoupling_spe_or_ridge": {
+      "n": 17,
+      "n_pos": 3,
+      "auc": 0.821,
+      "auc_deficit": 1.0,
+      "auc_decoupling": 0.726,
+      "tp": 1,
+      "fp": 3,
+      "positives": [
+        {
+          "id": 9,
+          "deficit_pct": 87.5,
+          "decoupling_pct": 68.8,
+          "alarm_pct": 68.8,
+          "rank": 6
+        },
+        {
+          "id": 12,
+          "deficit_pct": 93.8,
+          "decoupling_pct": 68.8,
+          "alarm_pct": 81.2,
+          "rank": 5
+        },
+        {
+          "id": 16,
+          "deficit_pct": 100.0,
+          "decoupling_pct": 100.0,
+          "alarm_pct": 100.0,
+          "rank": 4
+        }
+      ],
+      "review_to_catch_all": 6
+    }
+  }
+}
