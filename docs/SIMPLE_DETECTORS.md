@@ -56,4 +56,4 @@ Cechy: Zbiór 1 – 12 bazowych, 32 rozszerzonych; Zbiór 2 – 13 bazowych, 25 
 | z etykietami | rozszerzone | Las losowy | 0,619 | 0,382 / 0,833 | 0,229 | 9: 7, 12: 11, 16: 4 | 11 z 17 |
 | z etykietami | rozszerzone | XGBoost | 1,0 | 0,486 / 0,882 | 0,015 | 9: 2, 12: 3, 16: 1 | 3 z 17 |
 
-Odtworzenie: `uv run --with xgboost python -m src.simple_detectors`
+Odtworzenie: `uv sync --extra benchmark && uv run brainheroes benchmark`

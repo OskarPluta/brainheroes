@@ -1,20 +1,14 @@
-"""Builds REPORT.html (standalone page with charts) and REPORT.md from results/two_flag_*.
-
-Usage:
-    python -m src.two_flag_scoring        # regenerate the numbers
-    python -m src.make_two_flag_report    # regenerate the report
-    python -m src.make_two_flag_report --fragment out.html   # body-only variant for embedding
-"""
+"""Render docs/REPORT.html (standalone page with charts) and docs/REPORT.md from results/two_flag_*."""
 
 from __future__ import annotations
 
-import argparse
 import json
+from itertools import groupby
 from pathlib import Path
 
 import pandas as pd
 
-from src.two_flag_scoring import DOT_POSITIVE_IDS, SUPINE_POSITIVE_IDS
+from .constants import DOCS_DIR, DOT_CRIT_B_IDS, RESULTS_DIR, SUPINE_CRIT_A_IDS
 
 FEATURE_LABELS = {
     "bs_hr_bpm": "tętno spoczynkowe",
@@ -42,6 +36,13 @@ FEATURE_LABELS = {
 }
 MEDICATION_LABELS = {"nebilet": "beta-bloker", "od nadcisnienia": "leki na nadciśnienie", "izotec": "lek dermatologiczny"}
 DISEASE_LABELS = {"Astma": "astma", "Chorby jelitowe": "choroba jelit"}
+QC_FAULT_LABELS = {
+    "850nm_saturated": "nasycenie toru `850 nm`",
+    "760nm_saturated": "nasycenie toru `760 nm`",
+    "850nm_dropout": "zanik toru `850 nm`",
+    "760nm_dropout": "zanik toru `760 nm`",
+    "low_sci": "niskie SCI",
+}
 
 
 def _why(row: pd.Series, top: int = 3) -> list[list[object]]:
@@ -53,6 +54,51 @@ def _why(row: pd.Series, top: int = 3) -> list[list[object]]:
 def _clean(value: object, labels: dict[str, str]) -> str:
     text = str(value).strip()
     return "" if text in {"-", "nan", ""} else labels.get(text, text)
+
+
+def _id_ranges(ids: list[int]) -> str:
+    """[3, 4, 5, 9] -> "3–5, 9"."""
+    runs = [[v for _, v in g] for _, g in groupby(enumerate(sorted(ids)), key=lambda t: t[1] - t[0])]
+    return ", ".join(str(r[0]) if len(r) == 1 else f"{r[0]}–{r[-1]}" for r in runs)
+
+
+def describe_qc_failures(reasons: dict[str, str]) -> str:
+    """Human-readable QC failure summary, e.g. "u ID 3–11 nasycenie toru `850 nm` w obu sesjach".
+
+    Each reason looks like `bs_short_850nm_saturated+low_sci;bh_short_850nm_saturated`.
+    A subject is described by its hardware faults (low SCI only if nothing else failed).
+    """
+    groups: dict[tuple[str, str], list[int]] = {}
+    for sid, text in reasons.items():
+        faults: dict[str, set[str]] = {}
+        for part in text.split(";"):
+            session, _, rest = part.split("_", 2)
+            for fault in rest.split("+"):
+                faults.setdefault(fault, set()).add(session)
+        hardware = {f: s for f, s in faults.items() if f != "low_sci"} or faults
+        for fault, sessions in hardware.items():
+            where = "w obu sesjach" if len(sessions) == 2 else f"w `{next(iter(sessions)).upper()}`"
+            groups.setdefault((QC_FAULT_LABELS.get(fault, fault), where), []).append(int(sid))
+    parts = sorted(groups.items(), key=lambda kv: min(kv[1]))
+    return ", ".join(f"u ID {_id_ranges(ids)} {fault} {where}" for (fault, where), ids in parts)
+
+
+def _near_misses(block: dict[str, object], thr_hi: int, thr_lo: int) -> str:
+    """Positives below the alarm threshold, e.g. "ID 48 jest tuż pod progiem 90 (87,2 — ...)"."""
+    out = []
+    for p in block["positives"]:
+        if p["alarm_pct"] >= thr_hi:
+            continue
+        if p["alarm_pct"] >= thr_lo:
+            out.append(f"ID {p['id']} jest tuż pod progiem {thr_hi} ({_pl(p['alarm_pct'])} — przekracza próg {thr_lo})")
+        else:
+            out.append(f"ID {p['id']} nie przekracza progów {thr_hi}/{thr_lo}")
+    return ", a ".join(out) if out else f"wszystkie osoby z Kryt. A przekraczają próg {thr_hi}"
+
+
+def _pl(value: object) -> str:
+    """Polish decimal comma."""
+    return str(value).replace(".", ",")
 
 
 def build_payload(res: Path) -> dict[str, object]:
@@ -73,12 +119,12 @@ def build_payload(res: Path) -> dict[str, object]:
         }
 
     sup_rows = [
-        {**base(r, SUPINE_POSITIVE_IDS), "age": int(r.Age), "med": _clean(r.Medication, MEDICATION_LABELS)}
+        {**base(r, SUPINE_CRIT_A_IDS), "age": int(r.Age), "med": _clean(r.Medication, MEDICATION_LABELS)}
         for _, r in sup.iterrows()
     ]
     dot_rows = [
         {
-            **base(r, DOT_POSITIVE_IDS),
+            **base(r, DOT_CRIT_B_IDS),
             "bmi": round(float(r.BMI), 1),
             "dis": _clean(r.Chronic_Disease, DISEASE_LABELS),
             "g1": round(float(r.spb1_gain_01hz), 2),
@@ -105,7 +151,7 @@ def render_html(payload: dict[str, object], standalone: bool = True) -> str:
 
 def render_markdown(payload: dict[str, object]) -> str:
     s = payload["sum"]
-    pl = lambda v: str(v).replace(".", ",")  # noqa: E731
+    pl = _pl
 
     def pos_rows(block: dict[str, object]) -> str:
         return "\n".join(
@@ -116,23 +162,19 @@ def render_markdown(payload: dict[str, object]) -> str:
     sup, sup_b, dot, dot_a, young = s["supine"], s["supine_crit_b"], s["dot"], s["dot_crit_a"], s["supine_young_id38"]
     sup_neg = int(sup["n"] - sup["n_pos"])
     dot_neg = int(dot["n"] - dot["n_pos"])
-    qc = s.get("qc_funnel", {})
-    qc_enrolled = int(qc.get("enrolled", sup["n"]))
-    qc_inc = qc.get("incomplete_ids", [])
-    qc_fail = qc.get("qc_failed_short_channel_ids", [])
-    thr_hi = int(s["threshold"])
-    thr_lo = int(s.get("screening_threshold", 85))
+    qc = s["qc_funnel"]
+    qc_inc, qc_fail = qc["incomplete_ids"], qc["qc_failed_ids"]
+    thr_hi, thr_lo = int(s["threshold"]), int(s["screening_threshold"])
 
     k_rows = "\n".join(
         f"| {r['k']} | {pl(r['supine_auc'])} | {r['supine_tp']}/{sup['n_pos']}, {r['supine_fp']} z {sup_neg} | {pl(r['dot_auc'])} | {r['dot_tp']}/{dot['n_pos']}, {r['dot_fp']} z {dot_neg} |"
         for r in s["k_sensitivity"]
     )
-    # ranks use method="max", so rank == n_tied means the tie is at the very top
-    n_tied = int(young.get("n_tied", 1))
+    # Ranks use method="max", so rank == n_tied means the tie is at the very top.
+    n_tied = int(young["n_tied"])
     tie_note = ""
     if n_tied > 1:
-        where = "na szczycie" if young["rank"] == n_tied else f"{n_tied} osoby z tym samym wynikiem"
-        tie_note = f" (remis {where})" if young["rank"] == n_tied else f" (remis: {where})"
+        tie_note = " (remis na szczycie)" if young["rank"] == n_tied else f" (remis: {n_tied} osoby z tym samym wynikiem)"
 
     def row_summary(label: str, block: dict[str, object]) -> str:
         ci_vals = block.get("auc_ci95")
@@ -150,7 +192,7 @@ def render_markdown(payload: dict[str, object]) -> str:
     return f"""# Dwie flagi: deficyt i rozprzężenie w sygnale fNIRS
 
 **Projekt:** Heroes of the Brain 2026, ścieżka *Breath, Brain & Body* (Cortivision fNIRS).
-Wersja z wykresami: [`REPORT.html`](REPORT.html). Poprzedni wariant (średnia 50/50) jest w historii gita.
+Wersja z wykresami: [`REPORT.html`](REPORT.html). Poprzedni wariant (średnia 50/50) liczy `uv run brainheroes ablation`.
 
 ## Pomysł
 
@@ -166,16 +208,16 @@ i nie ma wag do strojenia. Jedyny parametr to liczba składowych PCA (k = 3).
 
 W Zbiorze 1 (Supine) regresja kanałów krótkich (`SSR`) oraz pomiar tętna wymagają co najmniej jednego
 ważnego kanału krótkiego (`10 mm`) i długiego w każdej sesji (`BS` i `BH`):
-- zapisano: {qc_enrolled} osób;
+- zapisano: {qc["enrolled"]} osób;
 - niepełny protokół (`BS` lub `BH`): {len(qc_inc)} osoby (ID {inc_str});
-- odrzucone przez automatyczne QC kanałów krótkich (`SCI < 0,70` / nasycenie `> 4,90 V` / zanik `< 0,005 V`): {len(qc_fail)} osób z grupy kontrolnej (ID {fail_str} — u ID 3–11 nasycenie toru `850 nm` w obu sesjach, u ID 35 zanik toru `760 nm` w `BS`);
-- **włączono do głównej analizy Supine:** **{sup['n']} osób** (bez utraty żadnego przypadku z Kryterium A ani B).
+- odrzucone przez automatyczne QC kanałów krótkich (`SCI < 0,70` / nasycenie `> 4,90 V` / zanik `< 0,005 V`): {len(qc_fail)} osób z grupy kontrolnej (ID {fail_str} — {describe_qc_failures(qc["qc_failed_reasons"])});
+- **włączono do głównej analizy Supine:** **{sup["n"]} osób** (bez utraty żadnego przypadku z Kryterium A ani B).
 
 ## Wyniki (k = 3, ujednolicone kryteria A/B oraz progi {thr_hi} i {thr_lo})
 
 - **Kryterium A**: leki kardiologiczne/hipotensyjne lub przewlekłe choroby krążeniowo-oddechowe
-  (Supine: {sup['n_pos']}/{sup['n']} — beta-bloker i leki na nadciśnienie, bez izotretynoiny; DOT: {dot_a['n_pos']}/{dot_a['n']} — astma).
-- **Kryterium B**: Kryterium A lub otyłość (BMI ≥ 30) (Supine: {sup_b['n_pos']}/{sup_b['n']}, DOT: {dot['n_pos']}/{dot['n']}).
+  (Supine: {sup["n_pos"]}/{sup["n"]} — beta-bloker i leki na nadciśnienie, bez izotretynoiny; DOT: {dot_a["n_pos"]}/{dot_a["n"]} — astma).
+- **Kryterium B**: Kryterium A lub otyłość (BMI ≥ 30) (Supine: {sup_b["n_pos"]}/{sup_b["n"]}, DOT: {dot["n_pos"]}/{dot["n"]}).
 
 Wartości p (jednostronny test Manna-Whitneya) są opisowe i nie są korygowane na wielokrotne porównania
 (4 wiersze × 2 progi). Dla grupy jednoosobowej przedział ufności nie ma sensu, więc go nie podajemy.
@@ -193,11 +235,11 @@ Wartości p (jednostronny test Manna-Whitneya) są opisowe i nie są korygowane 
 | :--- | :---: | :---: | :---: | :---: |
 {pos_rows(sup)}
 
-Ten sam przepis na samych cechach tętna daje AUC {pl(s['supine_heart_only']['auc'])}, na samych cechach korowych
-{pl(s['supine_cortex_only']['auc'])}, a na pełnym profilu {pl(sup['auc'])}.
+Ten sam przepis na samych cechach tętna daje AUC {pl(s["supine_heart_only"]["auc"])}, na samych cechach korowych
+{pl(s["supine_cortex_only"]["auc"])}, a na pełnym profilu {pl(sup["auc"])}.
 
-ID 38 (29 lat, beta-bloker) w analizie ograniczonej do {young['n_young']} osób w wieku do 42 lat:
-rozprzężenie {pl(young['decoupling_pct'])}, deficyt {pl(young['deficit_pct'])}, alarm {pl(young['alarm_pct'])}, miejsce {young['rank']}{tie_note}.
+ID 38 (29 lat, beta-bloker) w analizie ograniczonej do {young["n_young"]} osób w wieku do 42 lat:
+rozprzężenie {pl(young["decoupling_pct"])}, deficyt {pl(young["deficit_pct"])}, alarm {pl(young["alarm_pct"])}, miejsce {young["rank"]}{tie_note}.
 
 ### Zbiór 2: astma i BMI ≥ 30 (Kryterium B)
 
@@ -205,7 +247,7 @@ rozprzężenie {pl(young['decoupling_pct'])}, deficyt {pl(young['deficit_pct'])}
 | :--- | :---: | :---: | :---: | :---: |
 {pos_rows(dot)}
 
-Sam deficyt rezonansu daje tu AUC {pl(dot['auc_deficit'])}; flaga rozprzężenia dokłada jedną osobę bez rozpoznania.
+Sam deficyt rezonansu daje tu AUC {pl(dot["auc_deficit"])}; flaga rozprzężenia dokłada jedną osobę bez rozpoznania.
 
 ## Stabilność względem k
 
@@ -215,39 +257,33 @@ Sam deficyt rezonansu daje tu AUC {pl(dot['auc_deficit'])}; flaga rozprzężenia
 
 ## Zakres wniosków
 
-- Grupy wyróżnione mają {sup['n_pos']} i {dot['n_pos']} osoby (w DOT Kryt. A to {dot_a['n_pos']} osoba). To pokaz działania, nie pomiar skuteczności.
-- W Zbiorze 1 trzy z czterech osób z Kryt. A to jedyni uczestnicy 70+ i sam wiek daje AUC {pl(s['supine_age_auc'])}.
+- Grupy wyróżnione mają {sup["n_pos"]} i {dot["n_pos"]} osoby (w DOT Kryt. A to {dot_a["n_pos"]} osoba). To pokaz działania, nie pomiar skuteczności.
+- W Zbiorze 1 trzy z czterech osób z Kryt. A to jedyni uczestnicy 70+ i sam wiek daje AUC {pl(s["supine_age_auc"])}.
   Leczenia nie da się tu oddzielić od wieku; przemawiają za tym tylko ID 38 i Zbiór 2 (wszyscy 20–29 lat).
 - BMI ≥ 30 w obu zbiorach to tylko kilka osób, więc nie wyciągamy wniosków o jego wpływie. W Supine dodanie
-  trzech młodych osób z otyłością zmienia AUC do {pl(sup_b['auc'])} (ID 2 łapie flaga rozprzężenia, ale ID 51 i 55
+  trzech młodych osób z otyłością zmienia AUC do {pl(sup_b["auc"])} (ID 2 łapie flaga rozprzężenia, ale ID 51 i 55
   nie są wykrywane). W DOT kryteria A i B różnią się o 2 osoby (1 vs 3); przy tak małych grupach różnicy AUC nie interpretujemy.
 - Na górze listy są też osoby bez leków. Narzędzie wskazuje, komu warto się przyjrzeć, i niczego nie rozpoznaje.
-- W Supine ID 48 jest tuż pod progiem {thr_hi} (87,2 — przekracza próg {thr_lo}), a ID 60 nie przekracza progów {thr_hi}/{thr_lo}; poza analizą są ID {inc_str} (niepełne nagrania) oraz ID {fail_str} (brak ważnych kanałów krótkich wg QC).
+- W Supine {_near_misses(sup, thr_hi, thr_lo)}; poza analizą są ID {inc_str} (niepełne nagrania) oraz ID {fail_str} (brak ważnych kanałów krótkich wg QC).
 - Cechy tętna pochodzą z kanałów fNIRS (nie z osobnego pulsoksymetru), a w Zbiorze 2 (18 Hz) nie oceniamy ich osobno.
 - Wariant, w którym rozprzężenie uwzględnia też resztę regresji serce → kora: AUC
-  {pl(s['variants_k3']['supine_decoupling_spe_or_ridge']['auc'])} (Zbiór 1) i
-  {pl(s['variants_k3']['dot_decoupling_spe_or_ridge']['auc'])} (Zbiór 2).
+  {pl(s["variants_k3"]["supine_decoupling_spe_or_ridge"]["auc"])} (Zbiór 1) i
+  {pl(s["variants_k3"]["dot_decoupling_spe_or_ridge"]["auc"])} (Zbiór 2).
 
 ## Odtworzenie
 
 ```
-python -m src.two_flag_scoring       # results/two_flag_*.csv, two_flag_summary.json
-python -m src.make_two_flag_report   # REPORT.html, REPORT.md
+uv run brainheroes score    # results/two_flag_*.csv, two_flag_summary.json
+uv run brainheroes report   # docs/REPORT.html, docs/REPORT.md
 ```
 """
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--fragment", type=Path, default=None, help="also write a body-only HTML variant here")
-    args = parser.parse_args()
-    root = Path(__file__).resolve().parent.parent
-    payload = build_payload(root / "results")
-    (root / "REPORT.html").write_text(render_html(payload), encoding="utf-8")
-    (root / "REPORT.md").write_text(render_markdown(payload), encoding="utf-8")
-    if args.fragment is not None:
-        args.fragment.write_text(render_html(payload, standalone=False), encoding="utf-8")
-
-
-if __name__ == "__main__":
-    main()
+def run(results_dir: Path = RESULTS_DIR, docs_dir: Path = DOCS_DIR, fragment: Path | None = None) -> None:
+    """Write docs/REPORT.html and docs/REPORT.md; optionally a body-only HTML fragment for embedding."""
+    payload = build_payload(results_dir)
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    (docs_dir / "REPORT.html").write_text(render_html(payload), encoding="utf-8")
+    (docs_dir / "REPORT.md").write_text(render_markdown(payload), encoding="utf-8")
+    if fragment is not None:
+        fragment.write_text(render_html(payload, standalone=False), encoding="utf-8")

@@ -1,7 +1,7 @@
 [project]
 name = "brainheroes"
 version = "0.1.0"
-description = "Normative Unsupervised Anomaly Detection in fNIRS Signals (Heroes of the Brain 2026)"
+description = "Blind detection of physiological anomalies in fNIRS recordings (Heroes of the Brain 2026)"
 readme = "README.md"
 authors = [
     { email = "oskarpluta1906@gmail.com" }
@@ -9,23 +9,29 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "h5py>=3.11.0",
+    "joblib>=1.3.0",
     "matplotlib>=3.9.0",
-    "numpy>=1.26.0",
+    "numpy>=2.0.0",
     "pandas>=2.2.0",
     "scikit-learn>=1.5.0",
     "scipy>=1.13.0",
 ]
 
 [project.scripts]
-brainheroes = "brainheroes:main"
+brainheroes = "brainheroes.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.21,<0.13.0"]
 build-backend = "uv_build"
 
+[project.optional-dependencies]
+benchmark = ["xgboost>=2.0.0"]
+
 [tool.pytest.ini_options]
-pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 130
 
 [dependency-groups]
 dev = [

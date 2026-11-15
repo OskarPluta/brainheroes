@@ -1,7 +1,7 @@
 # Dwie flagi: deficyt i rozprzężenie w sygnale fNIRS
 
 **Projekt:** Heroes of the Brain 2026, ścieżka *Breath, Brain & Body* (Cortivision fNIRS).
-Wersja z wykresami: [`REPORT.html`](REPORT.html). Poprzedni wariant (średnia 50/50) jest w historii gita.
+Wersja z wykresami: [`REPORT.html`](REPORT.html). Poprzedni wariant (średnia 50/50) liczy `uv run brainheroes ablation`.
 
 ## Pomysł
 
@@ -91,6 +91,6 @@ Sam deficyt rezonansu daje tu AUC 1,0; flaga rozprzężenia dokłada jedną osob
 ## Odtworzenie
 
 ```
-python -m src.two_flag_scoring       # results/two_flag_*.csv, two_flag_summary.json
-python -m src.make_two_flag_report   # REPORT.html, REPORT.md
+uv run brainheroes score    # results/two_flag_*.csv, two_flag_summary.json
+uv run brainheroes report   # docs/REPORT.html, docs/REPORT.md
 ```

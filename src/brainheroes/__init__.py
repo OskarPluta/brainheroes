@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from brainheroes!")
+"""Blind detection of physiological anomalies in fNIRS recordings (Heroes of the Brain 2026)."""
