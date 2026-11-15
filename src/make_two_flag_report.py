@@ -113,11 +113,40 @@ def render_markdown(payload: dict[str, object]) -> str:
             for p in block["positives"]
         )
 
+    sup, sup_b, dot, dot_a, young = s["supine"], s["supine_crit_b"], s["dot"], s["dot_crit_a"], s["supine_young_id38"]
+    sup_neg = int(sup["n"] - sup["n_pos"])
+    dot_neg = int(dot["n"] - dot["n_pos"])
+    qc = s.get("qc_funnel", {})
+    qc_enrolled = int(qc.get("enrolled", sup["n"]))
+    qc_inc = qc.get("incomplete_ids", [])
+    qc_fail = qc.get("qc_failed_short_channel_ids", [])
+    thr_hi = int(s["threshold"])
+    thr_lo = int(s.get("screening_threshold", 85))
+
     k_rows = "\n".join(
-        f"| {r['k']} | {pl(r['supine_auc'])} | {r['supine_tp']}/4, {r['supine_fp']} z 54 | {pl(r['dot_auc'])} | {r['dot_tp']}/3, {r['dot_fp']} z 14 |"
+        f"| {r['k']} | {pl(r['supine_auc'])} | {r['supine_tp']}/{sup['n_pos']}, {r['supine_fp']} z {sup_neg} | {pl(r['dot_auc'])} | {r['dot_tp']}/{dot['n_pos']}, {r['dot_fp']} z {dot_neg} |"
         for r in s["k_sensitivity"]
     )
-    sup, dot, young = s["supine"], s["dot"], s["supine_young_id38"]
+    # ranks use method="max", so rank == n_tied means the tie is at the very top
+    n_tied = int(young.get("n_tied", 1))
+    tie_note = ""
+    if n_tied > 1:
+        where = "na szczycie" if young["rank"] == n_tied else f"{n_tied} osoby z tym samym wynikiem"
+        tie_note = f" (remis {where})" if young["rank"] == n_tied else f" (remis: {where})"
+
+    def row_summary(label: str, block: dict[str, object]) -> str:
+        ci_vals = block.get("auc_ci95")
+        ci = f"[{pl(ci_vals[0])}; {pl(ci_vals[1])}]" if ci_vals else "(CI: n/d, 1 osoba)"
+        return (
+            f"| {label} | {pl(block['auc'])} {ci} | {pl(block['mw_p'])} | "
+            f"{block['tp']}/{block['n_pos']} (FP: {block['fp']}) | "
+            f"{block['tp_85']}/{block['n_pos']} (FP: {block['fp_85']}) | "
+            f"{block['review_to_catch_all']} |"
+        )
+
+    inc_str = ", ".join(map(str, qc_inc)) if qc_inc else "brak"
+    fail_str = ", ".join(map(str, qc_fail)) if qc_fail else "brak"
+
     return f"""# Dwie flagi: deficyt i rozprzężenie w sygnale fNIRS
 
 **Projekt:** Heroes of the Brain 2026, ścieżka *Breath, Brain & Body* (Cortivision fNIRS).
@@ -133,14 +162,32 @@ Każda osoba dostaje dwie oceny, obie liczone w pełni ślepo (bez etykiet) w za
 Alarm to **wyższa z dwóch ocen**, ponownie skalibrowana na ocenach poza próbą. Niczego nie uśredniamy
 i nie ma wag do strojenia. Jedyny parametr to liczba składowych PCA (k = 3).
 
-## Wyniki (k = 3, próg {int(s['threshold'])})
+## Kontrola jakości sygnału (QC, bez użycia etykiet)
 
-| Zbiór | ROC-AUC | Powyżej progu | Alarmy wśród pozostałych | Ile osób przejrzeć, by mieć wszystkie |
-| :--- | :---: | :---: | :---: | :---: |
-| 1: pozycja leżąca (4 z {sup['n']}) | {pl(sup['auc'])} | {sup['tp']}/4 | {sup['fp']} z {sup['n'] - sup['n_pos']} | {sup['review_to_catch_all']} |
-| 2: DOT, pozycja siedząca (3 z {dot['n']}) | {pl(dot['auc'])} | {dot['tp']}/3 | {dot['fp']} z {dot['n'] - dot['n_pos']} | {dot['review_to_catch_all']} |
+W Zbiorze 1 (Supine) regresja kanałów krótkich (`SSR`) oraz pomiar tętna wymagają co najmniej jednego
+ważnego kanału krótkiego (`10 mm`) i długiego w każdej sesji (`BS` i `BH`):
+- zapisano: {qc_enrolled} osób;
+- niepełny protokół (`BS` lub `BH`): {len(qc_inc)} osoby (ID {inc_str});
+- odrzucone przez automatyczne QC kanałów krótkich (`SCI < 0,70` / nasycenie `> 4,90 V` / zanik `< 0,005 V`): {len(qc_fail)} osób z grupy kontrolnej (ID {fail_str} — u ID 3–11 nasycenie toru `850 nm` w obu sesjach, u ID 35 zanik toru `760 nm` w `BS`);
+- **włączono do głównej analizy Supine:** **{sup['n']} osób** (bez utraty żadnego przypadku z Kryterium A ani B).
 
-### Zbiór 1: osoby na lekach kardiologicznych
+## Wyniki (k = 3, ujednolicone kryteria A/B oraz progi {thr_hi} i {thr_lo})
+
+- **Kryterium A**: leki kardiologiczne/hipotensyjne lub przewlekłe choroby krążeniowo-oddechowe
+  (Supine: {sup['n_pos']}/{sup['n']} — beta-bloker i leki na nadciśnienie, bez izotretynoiny; DOT: {dot_a['n_pos']}/{dot_a['n']} — astma).
+- **Kryterium B**: Kryterium A lub otyłość (BMI ≥ 30) (Supine: {sup_b['n_pos']}/{sup_b['n']}, DOT: {dot['n_pos']}/{dot['n']}).
+
+Wartości p (jednostronny test Manna-Whitneya) są opisowe i nie są korygowane na wielokrotne porównania
+(4 wiersze × 2 progi). Dla grupy jednoosobowej przedział ufności nie ma sensu, więc go nie podajemy.
+
+| Zbiór i kryterium | ROC-AUC (95% CI) | p (MW) | Próg {thr_hi} (~10%) | Próg {thr_lo} (~15%) | Ile osób przejrzeć, by mieć wszystkie |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+{row_summary(f"1: Supine — Kryt. A ({sup['n_pos']} z {sup['n']})", sup)}
+{row_summary(f"1: Supine — Kryt. B ({sup_b['n_pos']} z {sup_b['n']})", sup_b)}
+{row_summary(f"2: DOT — Kryt. A ({dot_a['n_pos']} z {dot_a['n']})", dot_a)}
+{row_summary(f"2: DOT — Kryt. B ({dot['n_pos']} z {dot['n']})", dot)}
+
+### Zbiór 1: osoby na lekach kardiologicznych (Kryterium A)
 
 | ID | Deficyt | Rozprzężenie | Alarm | Miejsce |
 | :--- | :---: | :---: | :---: | :---: |
@@ -150,9 +197,9 @@ Ten sam przepis na samych cechach tętna daje AUC {pl(s['supine_heart_only']['au
 {pl(s['supine_cortex_only']['auc'])}, a na pełnym profilu {pl(sup['auc'])}.
 
 ID 38 (29 lat, beta-bloker) w analizie ograniczonej do {young['n_young']} osób w wieku do 42 lat:
-rozprzężenie {pl(young['decoupling_pct'])}, deficyt {pl(young['deficit_pct'])}, miejsce {young['rank']} (remis na szczycie).
+rozprzężenie {pl(young['decoupling_pct'])}, deficyt {pl(young['deficit_pct'])}, alarm {pl(young['alarm_pct'])}, miejsce {young['rank']}{tie_note}.
 
-### Zbiór 2: astma i BMI ≥ 30
+### Zbiór 2: astma i BMI ≥ 30 (Kryterium B)
 
 | ID | Deficyt | Rozprzężenie | Alarm | Miejsce |
 | :--- | :---: | :---: | :---: | :---: |
@@ -162,18 +209,21 @@ Sam deficyt rezonansu daje tu AUC {pl(dot['auc_deficit'])}; flaga rozprzężenia
 
 ## Stabilność względem k
 
-| k | Zbiór 1: AUC | Zbiór 1: trafieni, alarmy | Zbiór 2: AUC | Zbiór 2: trafieni, alarmy |
+| k | Zbiór 1 (Kryt. A): AUC | Zbiór 1: trafieni, alarmy (próg {thr_hi}) | Zbiór 2 (Kryt. B): AUC | Zbiór 2: trafieni, alarmy (próg {thr_hi}) |
 | :---: | :---: | :---: | :---: | :---: |
 {k_rows}
 
 ## Zakres wniosków
 
-- Grupy wyróżnione mają 4 i 3 osoby. To pokaz działania, nie pomiar skuteczności.
-- W Zbiorze 1 trzy z czterech osób to jedyni uczestnicy 70+ i sam wiek daje AUC {pl(s['supine_age_auc'])}.
+- Grupy wyróżnione mają {sup['n_pos']} i {dot['n_pos']} osoby (w DOT Kryt. A to {dot_a['n_pos']} osoba). To pokaz działania, nie pomiar skuteczności.
+- W Zbiorze 1 trzy z czterech osób z Kryt. A to jedyni uczestnicy 70+ i sam wiek daje AUC {pl(s['supine_age_auc'])}.
   Leczenia nie da się tu oddzielić od wieku; przemawiają za tym tylko ID 38 i Zbiór 2 (wszyscy 20–29 lat).
+- BMI ≥ 30 w obu zbiorach to tylko kilka osób, więc nie wyciągamy wniosków o jego wpływie. W Supine dodanie
+  trzech młodych osób z otyłością zmienia AUC do {pl(sup_b['auc'])} (ID 2 łapie flaga rozprzężenia, ale ID 51 i 55
+  nie są wykrywane). W DOT kryteria A i B różnią się o 2 osoby (1 vs 3); przy tak małych grupach różnicy AUC nie interpretujemy.
 - Na górze listy są też osoby bez leków. Narzędzie wskazuje, komu warto się przyjrzeć, i niczego nie rozpoznaje.
-- ID 60 nie przekracza progu; ID 41 i 59 (niepełne nagrania) są poza analizą.
-- Cechy tętna pochodzą z kanałów fNIRS, a w Zbiorze 2 (18 Hz) nie oceniamy ich osobno.
+- W Supine ID 48 jest tuż pod progiem {thr_hi} (87,2 — przekracza próg {thr_lo}), a ID 60 nie przekracza progów {thr_hi}/{thr_lo}; poza analizą są ID {inc_str} (niepełne nagrania) oraz ID {fail_str} (brak ważnych kanałów krótkich wg QC).
+- Cechy tętna pochodzą z kanałów fNIRS (nie z osobnego pulsoksymetru), a w Zbiorze 2 (18 Hz) nie oceniamy ich osobno.
 - Wariant, w którym rozprzężenie uwzględnia też resztę regresji serce → kora: AUC
   {pl(s['variants_k3']['supine_decoupling_spe_or_ridge']['auc'])} (Zbiór 1) i
   {pl(s['variants_k3']['dot_decoupling_spe_or_ridge']['auc'])} (Zbiór 2).

@@ -136,9 +136,18 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
         data_root, use_age_dpf=False, cache_path=res_dir / "dot_features_const_dpf.csv"
     )
 
-    # Filter complete BS+BH recordings for primary Supine analysis (N=58)
-    df_sup = df_sup_all[df_sup_all["has_bs"] & df_sup_all["has_bh"]].reset_index(drop=True)
-    df_sup_age = df_sup_age_all[df_sup_age_all["has_bs"] & df_sup_age_all["has_bh"]].reset_index(drop=True)
+    # Filter complete BS+BH recordings passing dual-wavelength short+long channel QC (N=48)
+    df_sup = df_sup_all[df_sup_all["qc_pass"].astype(bool)].reset_index(drop=True)
+    df_sup_age = df_sup_age_all[df_sup_age_all["qc_pass"].astype(bool)].reset_index(drop=True)
+
+    qc_failed_df = df_sup_all[df_sup_all["has_bs"] & df_sup_all["has_bh"] & (~df_sup_all["qc_pass"].astype(bool))]
+    supine_qc_funnel = {
+        "enrolled": int(len(df_sup_all)),
+        "incomplete_ids": [int(x) for x in df_sup_all.loc[~(df_sup_all["has_bs"] & df_sup_all["has_bh"]), "ID"]],
+        "qc_failed_ids": [int(x) for x in qc_failed_df["ID"]],
+        "qc_failed_reasons": {int(r.ID): str(r.qc_exclusion_reason) for _, r in qc_failed_df.iterrows()},
+        "analyzed": int(len(df_sup)),
+    }
 
     # Ground-truth definitions for Supine (N=58)
     # Criterion A (Strict Cardiovascular Pharmacology/Pathology): ID 38 (Nebilet), ID 48, 49, 60 (Antihypertensives)
@@ -371,8 +380,8 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
         )
 
     # Partial-recording subjects evaluation:
-    # 1. ID 59 (68 yo, antihypertensive medication, BS-only) evaluated on BS-only features (N=59)
-    df_bs_only = df_sup_all[df_sup_all["has_bs"]].reset_index(drop=True)
+    # 1. ID 59 (68 yo, antihypertensive medication, BS-only) evaluated on QC-passing BS-only features
+    df_bs_only = df_sup_all[df_sup_all["has_bs"] & df_sup_all["bs_qc_ok"].astype(bool)].reset_index(drop=True)
     bs_cols = ["bs_hr_bpm", "bs_sdnn_ms", "bs_rmssd_ms", "bs_lr_mayer_corr", "bs_mayer_amp", "bs_mayer_resp_ratio"]
     bs_ref = ~df_bs_only["ID"].isin([38, 48, 49, 59, 60]).to_numpy()
     bs_loocv = run_loocv_subspace_decomposition(
@@ -395,8 +404,8 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
         "fnirs_subspace_pct": round(float(bs_loocv.loc[idx_59, "fnirs_subspace_pct"]), 1),
     }
 
-    # 2. ID 41 (23 yo, "ozempikowaty", BMI 34.54, BH-only) evaluated on BH-only features (N=59)
-    df_bh_only = df_sup_all[df_sup_all["has_bh"]].reset_index(drop=True)
+    # 2. ID 41 (23 yo, "ozempikowaty", BMI 34.54, BH-only) evaluated on QC-passing BH-only features
+    df_bh_only = df_sup_all[df_sup_all["has_bh"] & df_sup_all["bh_qc_ok"].astype(bool)].reset_index(drop=True)
     bh_cols = ["bh_dur_max", "bh_ssr_cortical_od850", "bh_deep_od850", "bh_hbr_hbo_ratio", "bh_spatial_cv", "bh_hr_delta"]
     bh_ref = ~df_bh_only["ID"].isin([38, 41, 48, 49, 60]).to_numpy()
     bh_loocv = run_loocv_subspace_decomposition(
@@ -421,7 +430,7 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
         "fnirs_spe_pct": round(float(bh_loocv.loc[idx_41, "fnirs_spe_pct"]), 1),
     }
 
-    # Confounder Audit: Young-Only Cohort (Ages 18-42, N=55) testing ID 38 (Nebilet, age 29) without senior age confounding
+    # Confounder Audit: Young-Only Cohort (Ages 18-42, N=45) testing ID 38 (Nebilet, age 29) without senior age confounding
     young_mask = (df_sup["Age"] <= 42).to_numpy()
     df_young = df_sup[young_mask].reset_index(drop=True)
     y_pos_38 = (df_young["ID"] == 38).to_numpy()
@@ -455,6 +464,7 @@ def run_all_verifications(root_dir: Path | str) -> Dict[str, object]:
     generate_summary_figures(sup_merged, dot_merged, res_dir)
 
     summary = {
+        "supine_qc_funnel": supine_qc_funnel,
         "supine_criterion_a_metrics": sup_metrics_a,
         "supine_criterion_b_metrics": sup_metrics_b,
         "dot_criterion_b_metrics": dot_metrics_b,

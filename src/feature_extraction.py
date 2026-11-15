@@ -116,6 +116,40 @@ def estimate_unmarked_hold_duration(
     return est_dur
 
 
+def _classify_qc_failure(rec, dist_mask: np.ndarray, prefix: str) -> str:
+    """Describes why zero channels passed quality control in a distance group."""
+    idx = np.where(dist_mask)[0]
+    if len(idx) == 0:
+        return f"{prefix}_no_channels"
+    p99_850 = np.percentile(rec.raw850[:, idx], 99, axis=0)
+    p99_760 = np.percentile(rec.raw760[:, idx], 99, axis=0)
+    p01_760 = np.percentile(rec.raw760[:, idx], 1, axis=0)
+    p01_850 = np.percentile(rec.raw850[:, idx], 1, axis=0)
+    reasons: List[str] = []
+    if np.any(p99_850 > 4.90):
+        reasons.append("850nm_saturated")
+    if np.any(p99_760 > 4.90):
+        reasons.append("760nm_saturated")
+    if np.any(p01_760 < 0.005):
+        reasons.append("760nm_dropout")
+    if np.any(p01_850 < 0.005):
+        reasons.append("850nm_dropout")
+    if not reasons or not (
+        np.all(p99_850 > 4.90)
+        or np.all(p99_760 > 4.90)
+        or np.all(p01_760 < 0.005)
+        or np.all(p01_850 < 0.005)
+    ):
+        if "low_sci" not in reasons and not (
+            np.all(p99_850 > 4.90)
+            or np.all(p99_760 > 4.90)
+            or np.all(p01_760 < 0.005)
+            or np.all(p01_850 < 0.005)
+        ):
+            reasons.append("low_sci")
+    return f"{prefix}_" + "+".join(reasons)
+
+
 def extract_supine_features(
     data_root: Path | str,
     use_age_dpf: bool = False,
@@ -152,7 +186,15 @@ def extract_supine_features(
         bs_hr, bs_sdnn, bs_rmssd, bs_pulse_amp = np.nan, np.nan, np.nan, np.nan
         bs_lr_mayer_corr, bs_mayer_amp, bs_resp_amp, bs_mayer_resp_ratio = np.nan, np.nan, np.nan, np.nan
         bs_cort_mayer_amp = np.nan
+        bs_n_valid_short, bs_n_valid_deep = 0, 0
+        bs_qc_ok = False
+        qc_reasons: List[str] = []
         sci_list: List[float] = []
+
+        if not has_bs:
+            qc_reasons.append("missing_bs")
+        if not has_bh:
+            qc_reasons.append("missing_bh")
 
         if has_bs:
             rec_bs = load_snirf_recording(bs_files[0], apply_tddr=True, age_years=age_arg)
@@ -163,38 +205,42 @@ def extract_supine_features(
 
             shal = (dists < 15.0) & val
             deep = (dists >= 22.0) & val
-            if not np.any(shal):
-                shal = dists < 15.0
-            if not np.any(deep):
-                deep = dists >= 22.0
+            bs_n_valid_short = int(np.sum(shal))
+            bs_n_valid_deep = int(np.sum(deep))
+            bs_qc_ok = (bs_n_valid_short > 0) and (bs_n_valid_deep > 0)
+            if bs_n_valid_short == 0:
+                qc_reasons.append(_classify_qc_failure(rec_bs, dists < 15.0, "bs_short"))
+            if bs_n_valid_deep == 0:
+                qc_reasons.append(_classify_qc_failure(rec_bs, dists >= 22.0, "bs_deep"))
 
-            left_d = (dists >= 22.0) & (x_pos < 0) & val
-            right_d = (dists >= 22.0) & (x_pos > 0) & val
-            if not np.any(left_d):
-                left_d = (dists >= 22.0) & (x_pos < 0)
-            if not np.any(right_d):
-                right_d = (dists >= 22.0) & (x_pos > 0)
+            if bs_qc_ok:
+                left_d = (dists >= 22.0) & (x_pos < 0) & val
+                right_d = (dists >= 22.0) & (x_pos > 0) & val
 
-            bs_hr, bs_sdnn, bs_rmssd, bs_pulse_amp = extract_cardiac_hrv(
-                rec_bs.od850[:, shal], rec_bs.time, rec_bs.fs
-            )
+                bs_hr, bs_sdnn, bs_rmssd, bs_pulse_amp = extract_cardiac_hrv(
+                    rec_bs.od850[:, shal], rec_bs.time, rec_bs.fs
+                )
 
-            # Filter per channel first, then aggregate across valid channels
-            mayer_all = butter_bandpass(rec_bs.od850, 0.06, 0.14, rec_bs.fs)
-            resp_all = butter_bandpass(rec_bs.od850, 0.16, 0.40, rec_bs.fs)
+                # Filter per channel first, then aggregate across valid channels
+                mayer_all = butter_bandpass(rec_bs.od850, 0.06, 0.14, rec_bs.fs)
+                resp_all = butter_bandpass(rec_bs.od850, 0.16, 0.40, rec_bs.fs)
 
-            bs_lr_mayer_corr = compute_interhemispheric_coherence(mayer_all, left_d, right_d)
-            mayer_cort_ch, _ = ssr_clean(mayer_all[:, deep], mayer_all[:, shal])
+                bs_lr_mayer_corr = compute_interhemispheric_coherence(mayer_all, left_d, right_d)
+                mayer_cort_ch, _ = ssr_clean(mayer_all[:, deep], mayer_all[:, shal])
 
-            bs_mayer_amp = float(np.median(np.std(mayer_all[:, deep], axis=0)) * 1e3)
-            bs_cort_mayer_amp = float(np.median(np.std(mayer_cort_ch, axis=0)) * 1e3)
-            bs_resp_amp = float(np.median(np.std(resp_all[:, deep], axis=0)) * 1e3)
-            bs_mayer_resp_ratio = float(np.median(np.std(mayer_all[:, deep], axis=0) / (np.std(resp_all[:, deep], axis=0) + 1e-9)))
+                bs_mayer_amp = float(np.median(np.std(mayer_all[:, deep], axis=0)) * 1e3)
+                bs_cort_mayer_amp = float(np.median(np.std(mayer_cort_ch, axis=0)) * 1e3)
+                bs_resp_amp = float(np.median(np.std(resp_all[:, deep], axis=0)) * 1e3)
+                bs_mayer_resp_ratio = float(
+                    np.median(np.std(mayer_all[:, deep], axis=0) / (np.std(resp_all[:, deep], axis=0) + 1e-9))
+                )
 
         bh_dur_max, bh_dur_mean, bh_dur_hold3_est = np.nan, np.nan, np.nan
         bh_ssr_cortical_od850, bh_deep_od850, bh_shal_od850 = np.nan, np.nan, np.nan
         bh_hbr_hbo_ratio, bh_od760_850_ratio, bh_spatial_cv = np.nan, np.nan, np.nan
         bh_hr_delta, bh_hr_std, bh_cort_hr_coupling = np.nan, np.nan, np.nan
+        bh_n_valid_short, bh_n_valid_deep = 0, 0
+        bh_qc_ok = False
 
         if has_bh:
             rec_bh = load_snirf_recording(bh_files[0], apply_tddr=True, age_years=age_arg)
@@ -203,89 +249,93 @@ def extract_supine_features(
             val = rec_bh.valid_pairs
             shal = (dists < 15.0) & val
             deep = (dists >= 22.0) & val
-            if not np.any(shal):
-                shal = dists < 15.0
-            if not np.any(deep):
-                deep = dists >= 22.0
+            bh_n_valid_short = int(np.sum(shal))
+            bh_n_valid_deep = int(np.sum(deep))
+            bh_qc_ok = (bh_n_valid_short > 0) and (bh_n_valid_deep > 0)
+            if bh_n_valid_short == 0:
+                qc_reasons.append(_classify_qc_failure(rec_bh, dists < 15.0, "bh_short"))
+            if bh_n_valid_deep == 0:
+                qc_reasons.append(_classify_qc_failure(rec_bh, dists >= 22.0, "bh_deep"))
 
-            lp850 = butter_lowpass(rec_bh.od850, 0.12, rec_bh.fs)
-            lp760 = butter_lowpass(rec_bh.od760, 0.12, rec_bh.fs)
-            lphbo = butter_lowpass(rec_bh.hbo, 0.12, rec_bh.fs)
-            lphbr = butter_lowpass(rec_bh.hbr, 0.12, rec_bh.fs)
+            if bh_qc_ok:
+                lp850 = butter_lowpass(rec_bh.od850, 0.12, rec_bh.fs)
+                lp760 = butter_lowpass(rec_bh.od760, 0.12, rec_bh.fs)
+                lphbo = butter_lowpass(rec_bh.hbo, 0.12, rec_bh.fs)
+                lphbr = butter_lowpass(rec_bh.hbr, 0.12, rec_bh.fs)
 
-            ssr850, _ = ssr_clean(lp850[:, deep], lp850[:, shal])
-            pulse_ch = butter_bandpass(rec_bh.od850[:, shal], 0.7, 2.5, rec_bh.fs)
-            pulse_bh = np.mean(pulse_ch / np.maximum(np.std(pulse_ch, axis=0, keepdims=True), 1e-8), axis=1)
+                ssr850, _ = ssr_clean(lp850[:, deep], lp850[:, shal])
+                pulse_ch = butter_bandpass(rec_bh.od850[:, shal], 0.7, 2.5, rec_bh.fs)
+                pulse_bh = np.mean(pulse_ch / np.maximum(np.std(pulse_ch, axis=0, keepdims=True), 1e-8), axis=1)
 
-            s1 = rec_bh.stims.get("1", np.array([]))
-            s2 = rec_bh.stims.get("2", np.array([]))
+                s1 = rec_bh.stims.get("1", np.array([]))
+                s2 = rec_bh.stims.get("2", np.array([]))
 
-            marked_durs: List[float] = []
-            cort_amps: List[float] = []
-            deep_amps: List[float] = []
-            shal_amps: List[float] = []
-            hbr_hbo_rats: List[float] = []
-            od760_850_rats: List[float] = []
-            sp_cvs: List[float] = []
-            hr_deltas: List[float] = []
-            hr_stds: List[float] = []
+                marked_durs: List[float] = []
+                cort_amps: List[float] = []
+                deep_amps: List[float] = []
+                shal_amps: List[float] = []
+                hbr_hbo_rats: List[float] = []
+                od760_850_rats: List[float] = []
+                sp_cvs: List[float] = []
+                hr_deltas: List[float] = []
+                hr_stds: List[float] = []
 
-            for onset in s2:
-                after = s1[s1 > onset + 1.0]
-                if len(after) > 0:
-                    dur = float(after[0] - onset)
-                    marked_durs.append(dur)
-                else:
-                    dur = estimate_unmarked_hold_duration(lp850[:, deep], rec_bh.time, float(onset))
-                    bh_dur_hold3_est = dur
+                for onset in s2:
+                    after = s1[s1 > onset + 1.0]
+                    if len(after) > 0:
+                        dur = float(after[0] - onset)
+                        marked_durs.append(dur)
+                    else:
+                        dur = estimate_unmarked_hold_duration(lp850[:, deep], rec_bh.time, float(onset))
+                        bh_dur_hold3_est = dur
 
-                b_mask = (rec_bh.time >= onset - 15.0) & (rec_bh.time <= onset - 2.0)
-                r_mask = (rec_bh.time >= onset + 2.0) & (
-                    rec_bh.time <= min(float(rec_bh.time[-1]), onset + dur + 10.0)
-                )
-                h_mask = (rec_bh.time >= onset + 2.0) & (
-                    rec_bh.time <= min(float(rec_bh.time[-1]), onset + dur)
-                )
+                    b_mask = (rec_bh.time >= onset - 15.0) & (rec_bh.time <= onset - 2.0)
+                    r_mask = (rec_bh.time >= onset + 2.0) & (
+                        rec_bh.time <= min(float(rec_bh.time[-1]), onset + dur + 10.0)
+                    )
+                    h_mask = (rec_bh.time >= onset + 2.0) & (
+                        rec_bh.time <= min(float(rec_bh.time[-1]), onset + dur)
+                    )
 
-                if np.sum(b_mask) > 10 and np.sum(r_mask) > 10:
-                    c_ch = np.ptp(ssr850[r_mask], axis=0) * 1e3
-                    cort_amps.append(float(np.median(c_ch)))
-                    d_ch = np.ptp(lp850[r_mask][:, deep], axis=0) * 1e3
-                    deep_amps.append(float(np.median(d_ch)))
-                    shal_amps.append(float(np.median(np.ptp(lp850[r_mask][:, shal], axis=0)) * 1e3))
-                    sp_cvs.append(float(np.std(d_ch) / (np.mean(d_ch) + 1e-9)))
+                    if np.sum(b_mask) > 10 and np.sum(r_mask) > 10:
+                        c_ch = np.ptp(ssr850[r_mask], axis=0) * 1e3
+                        cort_amps.append(float(np.median(c_ch)))
+                        d_ch = np.ptp(lp850[r_mask][:, deep], axis=0) * 1e3
+                        deep_amps.append(float(np.median(d_ch)))
+                        shal_amps.append(float(np.median(np.ptp(lp850[r_mask][:, shal], axis=0)) * 1e3))
+                        sp_cvs.append(float(np.std(d_ch) / (np.mean(d_ch) + 1e-9)))
 
-                    hbo_ch = np.ptp(lphbo[r_mask][:, deep], axis=0)
-                    hbr_ch = np.ptp(lphbr[r_mask][:, deep], axis=0)
-                    hbr_hbo_rats.append(float(np.median(hbr_ch / (hbo_ch + 1e-9))))
+                        hbo_ch = np.ptp(lphbo[r_mask][:, deep], axis=0)
+                        hbr_ch = np.ptp(lphbr[r_mask][:, deep], axis=0)
+                        hbr_hbo_rats.append(float(np.median(hbr_ch / (hbo_ch + 1e-9))))
 
-                    od760_ch = np.ptp(lp760[r_mask][:, deep], axis=0)
-                    od850_ch = np.ptp(lp850[r_mask][:, deep], axis=0)
-                    od760_850_rats.append(float(np.median(od760_ch / (od850_ch + 1e-9))))
+                        od760_ch = np.ptp(lp760[r_mask][:, deep], axis=0)
+                        od850_ch = np.ptp(lp850[r_mask][:, deep], axis=0)
+                        od760_850_rats.append(float(np.median(od760_ch / (od850_ch + 1e-9))))
 
-                    min_d = max(int(0.42 * rec_bh.fs), 2)
-                    prom = max(float(np.std(pulse_bh) * 0.40), 1e-6)
-                    p_pre, _ = signal.find_peaks(pulse_bh[b_mask], distance=min_d, prominence=prom)
-                    p_h, _ = signal.find_peaks(pulse_bh[h_mask], distance=min_d, prominence=prom)
-                    if len(p_pre) > 3 and len(p_h) > 3:
-                        hr_pre = float(60.0 / np.median(np.diff(rec_bh.time[b_mask][p_pre])))
-                        hr_inst = 60.0 / np.diff(rec_bh.time[h_mask][p_h])
-                        hr_inst = hr_inst[(hr_inst > 40.0) & (hr_inst < 150.0)]
-                        if len(hr_inst) > 2:
-                            hr_deltas.append(float(np.percentile(hr_inst, 90) - hr_pre))
-                            hr_stds.append(float(np.std(hr_inst)))
+                        min_d = max(int(0.42 * rec_bh.fs), 2)
+                        prom = max(float(np.std(pulse_bh) * 0.40), 1e-6)
+                        p_pre, _ = signal.find_peaks(pulse_bh[b_mask], distance=min_d, prominence=prom)
+                        p_h, _ = signal.find_peaks(pulse_bh[h_mask], distance=min_d, prominence=prom)
+                        if len(p_pre) > 3 and len(p_h) > 3:
+                            hr_pre = float(60.0 / np.median(np.diff(rec_bh.time[b_mask][p_pre])))
+                            hr_inst = 60.0 / np.diff(rec_bh.time[h_mask][p_h])
+                            hr_inst = hr_inst[(hr_inst > 40.0) & (hr_inst < 150.0)]
+                            if len(hr_inst) > 2:
+                                hr_deltas.append(float(np.percentile(hr_inst, 90) - hr_pre))
+                                hr_stds.append(float(np.std(hr_inst)))
 
-            bh_dur_max = float(max(marked_durs)) if marked_durs else bh_dur_hold3_est
-            bh_dur_mean = float(np.mean(marked_durs)) if marked_durs else bh_dur_hold3_est
-            bh_ssr_cortical_od850 = float(np.mean(cort_amps))
-            bh_deep_od850 = float(np.mean(deep_amps))
-            bh_shal_od850 = float(np.mean(shal_amps))
-            bh_hbr_hbo_ratio = float(np.mean(hbr_hbo_rats))
-            bh_od760_850_ratio = float(np.mean(od760_850_rats))
-            bh_spatial_cv = float(np.mean(sp_cvs))
-            bh_hr_delta = float(np.mean(hr_deltas)) if hr_deltas else 0.0
-            bh_hr_std = float(np.mean(hr_stds)) if hr_stds else 1.0
-            bh_cort_hr_coupling = float(bh_ssr_cortical_od850 / (bh_hr_std + 0.5))
+                bh_dur_max = float(max(marked_durs)) if marked_durs else bh_dur_hold3_est
+                bh_dur_mean = float(np.mean(marked_durs)) if marked_durs else bh_dur_hold3_est
+                bh_ssr_cortical_od850 = float(np.mean(cort_amps))
+                bh_deep_od850 = float(np.mean(deep_amps))
+                bh_shal_od850 = float(np.mean(shal_amps))
+                bh_hbr_hbo_ratio = float(np.mean(hbr_hbo_rats))
+                bh_od760_850_ratio = float(np.mean(od760_850_rats))
+                bh_spatial_cv = float(np.mean(sp_cvs))
+                bh_hr_delta = float(np.mean(hr_deltas)) if hr_deltas else 0.0
+                bh_hr_std = float(np.mean(hr_stds)) if hr_stds else 1.0
+                bh_cort_hr_coupling = float(bh_ssr_cortical_od850 / (bh_hr_std + 0.5))
 
         rows.append(
             {
@@ -300,6 +350,14 @@ def extract_supine_features(
                 "Physical_Activity": pa_score,
                 "has_bs": has_bs,
                 "has_bh": has_bh,
+                "bs_n_valid_short": bs_n_valid_short,
+                "bs_n_valid_deep": bs_n_valid_deep,
+                "bh_n_valid_short": bh_n_valid_short,
+                "bh_n_valid_deep": bh_n_valid_deep,
+                "bs_qc_ok": bs_qc_ok,
+                "bh_qc_ok": bh_qc_ok,
+                "qc_pass": has_bs and has_bh and bs_qc_ok and bh_qc_ok,
+                "qc_exclusion_reason": ";".join(qc_reasons),
                 "mean_sci": float(np.mean(sci_list)) if sci_list else np.nan,
                 "bs_hr_bpm": bs_hr,
                 "bs_sdnn_ms": bs_sdnn,
@@ -473,8 +531,11 @@ def extract_dot_features(
 
             max_onsets = rec_b.stims.get("74", rec_b.stims.get("78", np.array([])))
             sess_deep = []
-            for onset in max_onsets:
-                est_dur = estimate_unmarked_hold_duration(lp850[:, deep_b], rec_b.time, float(onset), max_search_s=65.0)
+            for idx_o, onset in enumerate(max_onsets):
+                cap = 65.0
+                if idx_o + 1 < len(max_onsets):
+                    cap = min(cap, float(max_onsets[idx_o + 1] - onset - 5.0))
+                est_dur = estimate_unmarked_hold_duration(lp850[:, deep_b], rec_b.time, float(onset), max_search_s=cap)
                 bh_est_durs.append(est_dur)
                 b_mask = (rec_b.time >= onset - 15.0) & (rec_b.time <= onset - 2.0)
                 r_mask = (rec_b.time >= onset + 2.0) & (rec_b.time <= min(float(rec_b.time[-1]), onset + 60.0))
@@ -527,7 +588,7 @@ def extract_dot_features(
                 "spb_ssr_gain_med": float(np.median(ssr_gains)),
                 "spb_lr_coherence": float(np.median(lr_cohs)),
                 "spb_q_factor": float(np.median(q_facs)),
-                "bh_dur_est": float(np.max(bh_est_durs)),
+                "bh_dur_est": float(np.median(bh_est_durs)),
                 "bh_hr_delta": float(np.mean(bh_hr_deltas)) if bh_hr_deltas else 0.0,
                 "bh_ssr_cortical_od850": float(np.mean(bh_ssr_amps)),
                 "bh_deep_od850": float(np.mean(bh_deep_amps)),

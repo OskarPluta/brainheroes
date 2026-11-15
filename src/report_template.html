@@ -116,10 +116,10 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
   <h1>Dwie flagi: deficyt i rozprzężenie w sygnale fNIRS</h1>
   <p class="lead">Uczymy model, jak wygląda typowa odpowiedź serca i kory w spoczynku, przy bezdechu i przy wolnym oddychaniu. Każda osoba dostaje dwie niezależne oceny, a alarm wyznacza wyższa z nich. Model nie widzi żadnych etykiet, a mimo to na górze listy lądują osoby na lekach kardiologicznych oraz osoby z astmą i otyłością.</p>
   <div class="tiles">
-    <div class="tile"><small>Zbiór 1 · 58 osób</small><b>0,93</b><span>ROC-AUC dla 4 osób na lekach kardiologicznych; 0,89–0,94 dla innych ustawień PCA</span></div>
-    <div class="tile"><small>Zbiór 2 · 17 osób</small><b>0,94</b><span>ROC-AUC dla astmy i BMI ≥ 30 (3 osoby); 0,89–0,96 dla innych ustawień PCA</span></div>
-    <div class="tile"><small>Zbiór 1 · próg 90</small><b>3 z 4</b><span>osób powyżej progu, przy 2 alarmach wśród 54 pozostałych</span></div>
-    <div class="tile"><small>Zbiór 2 · ranking</small><b>4 z 17</b><span>tyle osób trzeba przejrzeć od góry listy, żeby mieć wszystkie 3</span></div>
+    <div class="tile"><small>Zbiór 1 · <span id="t1-n">48</span> osób</small><b id="t1-auc">0,89</b><span>ROC-AUC dla 4 osób na lekach kardiologicznych; <span id="t1-rng">0,88–0,91</span> dla innych ustawień PCA</span></div>
+    <div class="tile"><small>Zbiór 2 · <span id="t2-n">17</span> osób</small><b id="t2-auc">0,95</b><span>ROC-AUC dla astmy i BMI ≥ 30 (3 osoby); <span id="t2-rng">0,94–0,98</span> dla innych ustawień PCA</span></div>
+    <div class="tile"><small>Zbiór 1 · próg 90</small><b id="t3-tp">2 z 4</b><span>osób powyżej progu (3 z 4 przy progu 85), przy <span id="t3-fp">3 alarmach wśród 44</span> pozostałych</span></div>
+    <div class="tile"><small>Zbiór 2 · ranking</small><b id="t4-rev">5 z 17</b><span>tyle osób trzeba przejrzeć od góry listy, żeby mieć wszystkie 3</span></div>
   </div>
 </header>
 
@@ -131,13 +131,13 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
     <h3>Jak działa reguła na dwóch osobach ze Zbioru 1</h3>
     <div class="rule">
       <div class="case"><h4>ID 38 · 29 lat, beta-bloker</h4>
-        <div class="gauge"><span>Deficyt</span><div class="t"><i style="width:43.9%"></i></div><span class="v">44</span></div>
-        <div class="gauge win"><span>Rozprzężenie</span><div class="t"><i style="width:100%"></i></div><span class="v">100</span></div>
-        <div class="res">Alarm = 100. Średnia dałaby 72 i brak alarmu.</div></div>
+        <div class="gauge"><span>Deficyt</span><div class="t"><i id="ex38-def-bar" style="width:29.8%"></i></div><span class="v" id="ex38-def-v">30</span></div>
+        <div class="gauge win"><span>Rozprzężenie</span><div class="t"><i id="ex38-dec-bar" style="width:97.9%"></i></div><span class="v" id="ex38-dec-v">98</span></div>
+        <div class="res" id="ex38-res">Wyższa z dwóch = 97,9 (po kalibracji alarm: 95,7). Średnia dałaby ok. 64 i brak alarmu.</div></div>
       <div class="case"><h4>ID 49 · 70 lat, leki na nadciśnienie</h4>
-        <div class="gauge win"><span>Deficyt</span><div class="t"><i style="width:96.5%"></i></div><span class="v">96</span></div>
-        <div class="gauge"><span>Rozprzężenie</span><div class="t"><i style="width:38.6%"></i></div><span class="v">39</span></div>
-        <div class="res">Alarm = 96. Średnia dałaby 68 i brak alarmu.</div></div>
+        <div class="gauge win"><span>Deficyt</span><div class="t"><i id="ex49-def-bar" style="width:97.9%"></i></div><span class="v" id="ex49-def-v">97,9</span></div>
+        <div class="gauge"><span>Rozprzężenie</span><div class="t"><i id="ex49-dec-bar" style="width:34.0%"></i></div><span class="v" id="ex49-dec-v">34</span></div>
+        <div class="res" id="ex49-res">Wyższa z dwóch = 97,9 (po kalibracji alarm: 95,7). Średnia dałaby ok. 66 i brak alarmu.</div></div>
     </div>
     <figcaption>Liczby to percentyle względem pozostałych uczestników. Dwie osoby, dwa różne powody, ten sam wynik: obie trafiają na górę listy.</figcaption>
   </figure>
@@ -147,7 +147,7 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
   <h2>Dane</h2>
   <div class="scroll"><table>
     <tr><th></th><th>Zbiór 1: pozycja leżąca</th><th>Zbiór 2: pozycja siedząca (DOT)</th></tr>
-    <tr><td>Uczestnicy</td><td>60, w analizie 58 z kompletem nagrań</td><td>17</td></tr>
+    <tr><td>Uczestnicy</td><td id="sup-cohort-desc">60 zapisanych; 58 z kompletem BS+BH; w analizie 48 po ślepym QC kanałów krótkich (wykluczono ID 3–11 z nasyceniem 850 nm w BS+BH oraz ID 35 z zanikiem 760 nm w BS — wszystkie 10 to kontrole)</td><td>17</td></tr>
     <tr><td>Pomiar</td><td>141,79 Hz, optody krótkie i długie</td><td>190 kanałów, 18,27 Hz</td></tr>
     <tr><td>Protokół</td><td>spoczynek + próba bezdechu</td><td>4× spoczynek, 4× wolne oddychanie 0,1 Hz, 2× bezdech</td></tr>
     <tr><td>Wiek</td><td>18–78 lat, mediana 22</td><td>20–29 lat</td></tr>
@@ -205,9 +205,9 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
 
 <section>
   <h2>Zbiór 1: leki kardiologiczne</h2>
-  <p>Trzy z czterech osób przekraczają próg 90, przy dwóch alarmach wśród 54 pozostałych. ID 38 łapie flaga rozprzężenia, a ID 48 i 49 flaga deficytu. ID 60 jest tuż pod progiem deficytu (88) i zajmuje 16. miejsce na liście.</p>
+  <p id="sup-intro-p">Dwie z czterech osób przekraczają próg 90 (<span id="sup-tp-fp-inline">3 alarmy wśród 44 pozostałych</span>), a trzecia (ID 48: 87,2) przekracza próg przesiewowy 85. ID 38 łapie flaga rozprzężenia, a ID 48 i 49 flaga deficytu. ID 60 ma podniesiony deficyt (85,1; alarm 72,3) i zajmuje 16. miejsce na liście.</p>
   <div class="legend">
-    <span><i style="background:var(--ref)"></i>pozostali uczestnicy (54)</span>
+    <span><i style="background:var(--ref)"></i>pozostali uczestnicy (<span id="sup-neg-n">44</span>)</span>
     <span><i style="background:var(--s1)"></i>leki na nadciśnienie, 70–78 lat</span>
     <span><i class="d" style="background:var(--s2)"></i>beta-bloker, 29 lat</span>
     <span><i class="ring"></i>alarm ≥ 90</span>
@@ -215,7 +215,7 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
   <figure>
     <h3>Każda osoba na dwóch osiach</h3>
     <p>Poziomo: percentyl deficytu. Pionowo: percentyl rozprzężenia. Alarm włącza się przy prawej albo górnej krawędzi.</p>
-    <svg id="scSup" viewBox="0 0 640 440" role="img" aria-label="Wykres punktowy: deficyt wobec rozprzężenia dla 58 osób"></svg>
+    <svg id="scSup" viewBox="0 0 640 440" role="img" aria-label="Wykres punktowy: deficyt wobec rozprzężenia w Zbiorze 1"></svg>
     <figcaption>Osoby z grupy wyróżnionej leżą przy krawędziach, a nie w rogu: każda ma zwykle tylko jeden z dwóch objawów.</figcaption>
   </figure>
   <figure>
@@ -223,7 +223,7 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
     <p>Góra rankingu i wszystkie osoby z grupy wyróżnionej. Przy każdej trzy najbardziej odstające cechy (odchylenie w jednostkach z).</p>
     <div class="scroll" id="listSup"></div>
   </figure>
-  <details><summary>Tabela wartości dla wszystkich 58 osób</summary><div class="scroll" id="tabSup"></div></details>
+  <details><summary>Tabela wartości dla wszystkich <span id="sup-tab-n">48</span> osób</summary><div class="scroll" id="tabSup"></div></details>
 
   <figure>
     <h3>Co daje połączenie serca i kory</h3>
@@ -236,13 +236,13 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
 
 <section>
   <h2>Obserwacja: uczestnik ID 38</h2>
-  <p>To jedyna młoda osoba na leku kardiologicznym, więc pozwala spojrzeć na wynik bez wpływu wieku. Po ograniczeniu analizy do 55 osób w wieku do 42 lat ma <strong>rozprzężenie na 100. percentylu</strong> i jest na samej górze listy (remis z jedną osobą), choć deficyt ma przeciętny (46).</p>
+  <p>To jedyna młoda osoba na leku kardiologicznym, więc pozwala spojrzeć na wynik bez wpływu wieku. Po ograniczeniu analizy do <span id="y-n">45</span> osób w wieku do 42 lat ma <strong>rozprzężenie na <span id="y-dec">97,7</span>. percentylu</strong> (alarm <span id="y-al">95,5</span>, miejsce <span id="y-rk">4</span>), choć deficyt ma przeciętny (<span id="y-def">29,5</span>).</p>
   <p>Wyróżnia go nietypowo silna oscylacja Mayera względem oddechowej przy zwyczajnym tętnie i zwyczajnym czasie bezdechu. To jedna osoba, więc traktujemy to jako trop wart sprawdzenia na większej grupie.</p>
 </section>
 
 <section>
   <h2>Zbiór 2: rezonans przy wolnym oddychaniu</h2>
-  <p>Ten sam przepis, inne urządzenie i inny protokół. Deficytem jest tu słabe wzmocnienie mocy 0,1 Hz przy wolnym oddychaniu. Wszystkie trzy osoby są w pierwszej czwórce z 17.</p>
+  <p>Ten sam przepis, inny montaż optod (DOT, 18,27 Hz), pozycja siedząca i inny protokół (to samo urządzenie Cortivision Spectrum C23). Deficytem jest tu słabe wzmocnienie mocy 0,1 Hz przy wolnym oddychaniu. Wszystkie trzy osoby są w pierwszej <span id="dot-top-word">piątce</span> z <span id="dot-n">17</span>.</p>
   <div class="legend">
     <span><i style="background:var(--ref)"></i>pozostali uczestnicy (14)</span>
     <span><i style="background:var(--s1)"></i>astma (ID 12)</span>
@@ -284,8 +284,8 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
       <h3>Liczba składowych PCA</h3>
       <p>ROC-AUC alarmu dla k od 1 do 5. W raporcie używamy k = 3.</p>
       <div class="legend"><span><i style="background:var(--s1)"></i>Zbiór 1</span><span><i class="d" style="background:var(--s2)"></i>Zbiór 2</span></div>
-      <svg id="lineK" viewBox="0 0 520 250" role="img" aria-label="Wykres liniowy: AUC w obu zbiorach pozostaje między 0,89 a 0,96 dla k od 1 do 5"></svg>
-      <figcaption>Wynik nie wisi na jednym ustawieniu: w obu zbiorach zostaje między 0,89 a 0,96.</figcaption>
+      <svg id="lineK" viewBox="0 0 520 250" role="img" aria-label="Wykres liniowy: AUC w obu zbiorach pozostaje między 0,88 a 0,98 dla k od 1 do 5"></svg>
+      <figcaption>Wynik nie wisi na jednym ustawieniu: w obu zbiorach zostaje między <span id="k-rng-all">0,88 a 0,98</span>.</figcaption>
     </figure>
     <figure>
       <h3>Alarmy przy progu 90</h3>
@@ -298,20 +298,22 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
 <section>
   <h2>Co z tego wynika</h2>
   <ul>
-    <li><strong>Jedna prosta reguła działa na dwóch różnych urządzeniach</strong> i nie potrzebuje etykiet ani strojenia: 0,93 i 0,94.</li>
+    <li><strong>Jedna prosta reguła działa na dwóch różnych montażach i protokołach pomiarowych</strong> i nie potrzebuje etykiet ani strojenia: <span id="sum-s1">0,89</span> i <span id="sum-s2">0,95</span>.</li>
     <li><strong>Dwie flagi łapią różne osoby.</strong> Deficyt wskazuje seniorów na lekach na nadciśnienie oraz osoby z astmą i otyłością. Rozprzężenie wskazuje młodą osobę na beta-blokerze, której żadna pojedyncza cecha nie zdradza.</li>
-    <li><strong>Wartość bierze się z połączenia serca i kory.</strong> Ten sam przepis na samym tętnie daje 0,66, na samej korze 0,77, a razem 0,93.</li>
+    <li><strong>Wartość bierze się z połączenia serca i kory.</strong> Ten sam przepis na samym tętnie daje <span id="sum-hr">0,71</span>, na samej korze <span id="sum-cx">0,74</span>, a razem <span id="sum-full">0,89</span>.</li>
     <li><strong>Każdy alarm da się wyjaśnić:</strong> wiadomo, która flaga zadziałała i które cechy odstają.</li>
   </ul>
 
   <h3>Zakres wniosków</h3>
   <ul>
-    <li>Grupy wyróżnione mają 4 i 3 osoby. To pokaz działania, nie pomiar skuteczności.</li>
-    <li>W Zbiorze 1 trzy z czterech osób to jedyni uczestnicy w wieku 70+ i sam wiek porządkuje je równie dobrze (AUC 0,975). Leczenia nie da się tu oddzielić od wieku. Za tym, że to nie tylko wiek, przemawiają ID 38 i Zbiór 2, w którym wszyscy mają 20–29 lat.</li>
-    <li>Na górze listy są też osoby bez leków (w Zbiorze 1 ID 27 i ID 4, w Zbiorze 2 ID 11). Narzędzie wskazuje, komu warto się przyjrzeć, i niczego nie rozpoznaje.</li>
-    <li>ID 60 nie przekracza progu, a dwie osoby z niepełnymi nagraniami (ID 41 i 59) są poza analizą.</li>
+    <li>Grupy wyróżnione mają 4 i 3 osoby (w DOT bez otyłości: 1 osoba z astmą). To pokaz działania, nie pomiar skuteczności.</li>
+    <li>W Zbiorze 1 trzy z czterech osób to jedyni uczestnicy w wieku 70+ i sam wiek porządkuje je równie dobrze (AUC <span id="sum-age">0,983</span>). Leczenia nie da się tu oddzielić od wieku. Za tym, że to nie tylko wiek, przemawiają ID 38 i Zbiór 2, w którym wszyscy mają 20–29 lat.</li>
+    <li><strong>Ujednolicone kryteria A/B:</strong> po dopisaniu 3 młodych osób z BMI ≥ 30 do Zbioru 1 (Kryt. B: 7 z <span id="sum-s1b-n">48</span>) AUC wynosi <span id="sum-s1b">0,833</span> (<span id="sum-s1b-p">p = 0,0027</span>; flaga rozprzężenia łapie ID 2 na 91,5, natomiast ID 51 i 55 pozostają poniżej progu). W Zbiorze 2 dla samej astmy (Kryt. A: 1 z 17) AUC wynosi <span id="sum-s2a">0,906</span> (<span class="num">p = 0,11</span>, bez CI przy n = 1).</li>
+    <li>Na górze listy są też osoby bez leków (w Zbiorze 1 np. ID 13 i ID 27, w Zbiorze 2 ID 11). Narzędzie wskazuje, komu warto się przyjrzeć, i niczego nie rozpoznaje.</li>
+    <li>Przy remisach miejsce w rankingu oznacza najgorszą pozycję w grupie remisowej (np. dwie osoby na szczycie mają miejsce 2), co konserwatywnie wyznacza liczbę osób do przejrzenia.</li>
+    <li>W Zbiorze 1 ID 48 (87,2) przekracza próg 85, lecz nie 90; ID 60 nie przekracza żadnego z progów. Poza analizą są ID 41 i 59 (niepełne nagrania) oraz ID 3–11 i ID 35 (wykluczone przez ślepe QC kanałów krótkich: brak ważnego kanału 10 mm — nasycenie 850 nm w ID 3–11, zanik 760 nm w BS u ID 35; wszystkie 10 to kontrole).</li>
     <li>Tętna w Zbiorze 2 nie oceniamy osobno, bo 18 Hz to za mało na wiarygodną zmienność rytmu.</li>
-    <li>Osie deficytu zostały wybrane przez ludzi znających te dane. Sprawdziliśmy też wariant, w którym flaga rozprzężenia uwzględnia resztę regresji serce → kora: 0,92 w Zbiorze 1 i 0,82 w Zbiorze 2.</li>
+    <li>Osie deficytu zostały wybrane przez ludzi znających te dane. Sprawdziliśmy też wariant, w którym flaga rozprzężenia uwzględnia resztę regresji serce → kora: <span id="sum-v1">0,89</span> w Zbiorze 1 i <span id="sum-v2">0,85</span> w Zbiorze 2.</li>
   </ul>
 
   <h3>Dalsze kroki</h3>
@@ -399,7 +401,7 @@ bars('barsDot',[['Alarm: wyższa z dwóch flag',SUM.dot.auc,1],['Sama flaga defi
     K.forEach(r=>{mark(svg,X(r.k),Y(r[s[0]]),s[2]);hover(el(svg,'circle',{class:'hit',cx:X(r.k),cy:Y(r[s[0]]),r:12}),`${s[3]} · k = ${r.k}\nAUC ${pl(r[s[0]].toFixed(3))}`)});
     const last=K[K.length-1];el(svg,'text',{class:'lab',x:X(5)+12,y:Y(last[s[0]])+4},s[3]);
   });
-  document.getElementById('tabK').innerHTML='<table><tr><th>k</th><th class="r">Zbiór 1</th><th class="r">Zbiór 2</th></tr>'+K.map(r=>`<tr><td>${r.k}${r.k===3?' (raport)':''}</td><td class="r">${r.supine_tp}/4 · ${r.supine_fp} z 54</td><td class="r">${r.dot_tp}/3 · ${r.dot_fp} z 14</td></tr>`).join('')+'</table>';
+  document.getElementById('tabK').innerHTML='<table><tr><th>k</th><th class="r">Zbiór 1</th><th class="r">Zbiór 2</th></tr>'+K.map(r=>`<tr><td>${r.k}${r.k===3?' (raport)':''}</td><td class="r">${r.supine_tp}/${SUM.supine.n_pos} · ${r.supine_fp} z ${SUM.supine.n-SUM.supine.n_pos}</td><td class="r">${r.dot_tp}/${SUM.dot.n_pos} · ${r.dot_fp} z ${SUM.dot.n-SUM.dot.n_pos}</td></tr>`).join('')+'</table>';
 })();
 
 /* DOT lollipop, log scale */
@@ -431,4 +433,39 @@ bars('barsDot',[['Alarm: wyższa z dwóch flag',SUM.dot.auc,1],['Sama flaga defi
 function table(id,head,rows){document.getElementById(id).innerHTML='<table><tr>'+head.map((h,i)=>`<th class="${i?'r':''}">${h}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map((c,i)=>`<td class="${i?'r':''}">${typeof c==='number'?f1(c):c}</td>`).join('')+'</tr>').join('')+'</table>'}
 table('tabSup',['ID','Wiek','Deficyt','Rozprzężenie','Alarm','Miejsce'],SUP.map(p=>[p.id,p.age,p.def,p.dec,p.alarm,p.rank]));
 table('tabDot',['ID','BMI','Deficyt','Rozprzężenie','Alarm','Miejsce','Wzmocnienie 0,1 Hz'],DOT.map(p=>[p.id,p.bmi,p.def,p.dec,p.alarm,p.rank,pl(p.g1.toFixed(2))+'×']));
+
+/* keep inline prose numbers synchronized with SUM */
+(function(){
+  const f2=v=>pl(v.toFixed(2)), f3=v=>pl(v.toFixed(3)), set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t};
+  const ks=SUM.k_sensitivity, sA=ks.map(r=>r.supine_auc), dA=ks.map(r=>r.dot_auc), allA=sA.concat(dA);
+  const rng=(a,sep)=>`${f2(Math.min(...a))}${sep}${f2(Math.max(...a))}`;
+  set('t1-n',SUM.supine.n); set('t1-auc',f2(SUM.supine.auc)); set('t1-rng',rng(sA,'–'));
+  set('t2-n',SUM.dot.n); set('t2-auc',f2(SUM.dot.auc)); set('t2-rng',rng(dA,'–'));
+  set('t3-tp',`${SUM.supine.tp} z ${SUM.supine.n_pos}`);
+  set('t3-fp',`${SUM.supine.fp} alarmach wśród ${SUM.supine.n-SUM.supine.n_pos}`);
+  set('t4-rev',`${SUM.dot.review_to_catch_all} z ${SUM.dot.n}`);
+  set('sup-neg-n',SUM.supine.n-SUM.supine.n_pos); set('sup-tab-n',SUM.supine.n);
+  set('sup-tp-fp-inline',`${SUM.supine.fp} alarmy wśród ${SUM.supine.n-SUM.supine.n_pos} pozostałych`);
+  const s38=SUP.find(p=>p.id===38), s49=SUP.find(p=>p.id===49);
+  if(s38){
+    document.getElementById('ex38-def-bar').style.width=s38.def+'%'; set('ex38-def-v',f1(s38.def));
+    document.getElementById('ex38-dec-bar').style.width=s38.dec+'%'; set('ex38-dec-v',f1(s38.dec));
+    set('ex38-res',`Wyższa z dwóch = ${f1(Math.max(s38.def,s38.dec))} (po kalibracji alarm: ${f1(s38.alarm)}). Średnia dałaby ${f1((s38.def+s38.dec)/2)} i brak alarmu.`);
+  }
+  if(s49){
+    document.getElementById('ex49-def-bar').style.width=s49.def+'%'; set('ex49-def-v',f1(s49.def));
+    document.getElementById('ex49-dec-bar').style.width=s49.dec+'%'; set('ex49-dec-v',f1(s49.dec));
+    set('ex49-res',`Wyższa z dwóch = ${f1(Math.max(s49.def,s49.dec))} (po kalibracji alarm: ${f1(s49.alarm)}). Średnia dałaby ${f1((s49.def+s49.dec)/2)} i brak alarmu.`);
+  }
+  const y38=SUM.supine_young_id38;
+  if(y38){ set('y-n',y38.n_young); set('y-dec',f1(y38.decoupling_pct)); set('y-al',f1(y38.alarm_pct)); set('y-rk',y38.rank); set('y-def',f1(y38.deficit_pct)); }
+  set('dot-n',SUM.dot.n);
+  set('k-rng-all',rng(allA,' a '));
+  set('sum-s1',f2(SUM.supine.auc)); set('sum-s2',f2(SUM.dot.auc));
+  set('sum-hr',f2(SUM.supine_heart_only.auc)); set('sum-cx',f2(SUM.supine_cortex_only.auc)); set('sum-full',f2(SUM.supine.auc));
+  set('sum-age',f3(SUM.supine_age_auc));
+  set('sum-s1b-n',SUM.supine_crit_b.n); set('sum-s1b',f3(SUM.supine_crit_b.auc)); set('sum-s1b-p',`p = ${pl(SUM.supine_crit_b.mw_p)}`); set('sum-s2a',f3(SUM.dot_crit_a.auc));
+  set('sum-v1',f2(SUM.variants_k3.supine_decoupling_spe_or_ridge.auc));
+  set('sum-v2',f2(SUM.variants_k3.dot_decoupling_spe_or_ridge.auc));
+})();
 </script>

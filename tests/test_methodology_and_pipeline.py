@@ -7,7 +7,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.feature_extraction import extract_cardiac_hrv
 from src.run_experiments import (
@@ -290,4 +289,17 @@ def test_empirical_hackathon_results_integrity():
     assert sup_a["fNIRS Stage 2 Clinical Triage (Fully Blind LOOCV)"]["neg_control_fp"] == 0
     assert sup_a["fNIRS Stage 1: PCA SPE / Q-residual (Out-of-Subspace)"]["fp_at_90"] <= 7
     assert sup_a["fNIRS Stage 1: Cross-Modal Ridge (Heart->Brain)"]["fp_at_90"] <= 7
+
+
+def test_supine_qc_funnel_excludes_invalid_short_channels():
+    """Verifies blind hardware QC excludes invalid short-channel subjects (N=48) without fallback or NaNs."""
+    root = Path(__file__).resolve().parent.parent
+    df_all = pd.read_csv(root / "results" / "supine_features_const_dpf.csv")
+    assert len(df_all) == 60
+    qc_ok = df_all[df_all["qc_pass"].astype(bool)]
+    assert len(qc_ok) == 48
+    assert not qc_ok[SUPINE_FEATURE_COLS].isna().any().any()
+    assert set(df_all.loc[~df_all["qc_pass"].astype(bool), "ID"]) == {3, 4, 5, 6, 7, 8, 9, 10, 11, 35, 41, 59}
+    assert set([38, 48, 49, 60, 2, 51, 55]).issubset(set(qc_ok["ID"]))
+
 

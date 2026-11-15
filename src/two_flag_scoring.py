@@ -22,6 +22,7 @@ from typing import Callable, Sequence
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 from sklearn.metrics import roc_auc_score
 
 from src.normative_modeling import (
@@ -47,8 +48,11 @@ SUPINE_HEART_COLS = ["bs_hr_bpm", "bs_sdnn_ms", "bs_rmssd_ms", "bh_hr_delta"]
 SUPINE_CORTEX_COLS = list(SUPINE_BRAIN_COLS)
 
 SUPINE_POSITIVE_IDS = [38, 48, 49, 60]
+SUPINE_CRIT_B_IDS = [38, 48, 49, 60, 2, 51, 55]
 DOT_POSITIVE_IDS = [9, 12, 16]
+DOT_CRIT_A_IDS = [12]
 ALARM_THRESHOLD = 90.0
+SCREENING_THRESHOLD = 85.0
 
 
 def _one_sided_rms(z_mat: np.ndarray, col_idx: dict[str, int], low_cols: Sequence[str]) -> np.ndarray:
@@ -135,19 +139,40 @@ def two_flag_scores(
     return out
 
 
+def _auc_bootstrap_ci(y: np.ndarray, scores: np.ndarray, n_boot: int = 2000, seed: int = 42) -> list[float]:
+    rng = np.random.default_rng(seed)
+    aucs = []
+    n = len(y)
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        if y[idx].sum() == 0 or y[idx].sum() == n:
+            continue
+        aucs.append(float(roc_auc_score(y[idx], scores[idx])))
+    return [round(float(np.percentile(aucs, 2.5)), 3), round(float(np.percentile(aucs, 97.5)), 3)]
+
+
 def summarize(scores: pd.DataFrame, positive_ids: Sequence[int]) -> dict[str, object]:
     """Ranking and threshold summary of a two-flag score table against a list of flagged-by-metadata IDs."""
     y = scores["ID"].isin(positive_ids).to_numpy()
     flag = scores["alarm"].to_numpy()
+    flag_85 = (scores["alarm_pct"] >= SCREENING_THRESHOLD).to_numpy()
     pos = scores[y]
+    raw = scores["alarm_raw"].to_numpy()
+    _, mw_p = stats.mannwhitneyu(raw[y], raw[~y], alternative="greater")
     return {
         "n": int(len(scores)),
         "n_pos": int(y.sum()),
-        "auc": round(float(roc_auc_score(y, scores["alarm_raw"])), 3),
+        "auc": round(float(roc_auc_score(y, raw)), 3),
+        # A bootstrap CI is meaningless for a single positive (resamples without it are dropped),
+        # so it is only reported for groups of at least two.
+        "auc_ci95": _auc_bootstrap_ci(y, raw) if y.sum() >= 2 else None,
+        "mw_p": round(float(mw_p), 4),
         "auc_deficit": round(float(roc_auc_score(y, scores["deficit_pct"])), 3),
         "auc_decoupling": round(float(roc_auc_score(y, scores["decoupling_pct"])), 3),
         "tp": int((flag & y).sum()),
         "fp": int((flag & ~y).sum()),
+        "tp_85": int((flag_85 & y).sum()),
+        "fp_85": int((flag_85 & ~y).sum()),
         "positives": [
             {
                 "id": int(r.ID),
@@ -166,7 +191,19 @@ def run_all(root_dir: Path | str) -> dict[str, object]:
     root = Path(root_dir)
     res = root / "results"
     sup_all = pd.read_csv(res / "supine_features_const_dpf.csv")
-    sup = sup_all[sup_all["has_bs"] & sup_all["has_bh"]].reset_index(drop=True)
+    if "qc_pass" in sup_all.columns:
+        sup = sup_all[sup_all["qc_pass"].astype(bool)].reset_index(drop=True)
+        incomplete_ids = [int(x) for x in sup_all.loc[~(sup_all["has_bs"] & sup_all["has_bh"]), "ID"]]
+        qc_failed = sup_all[sup_all["has_bs"] & sup_all["has_bh"] & (~sup_all["qc_pass"].astype(bool))]
+        qc_failed_ids = [int(x) for x in qc_failed["ID"]]
+        qc_failed_reasons = {
+            int(r.ID): str(r.qc_exclusion_reason) for _, r in qc_failed.iterrows()
+        }
+    else:
+        sup = sup_all[sup_all["has_bs"] & sup_all["has_bh"]].reset_index(drop=True)
+        incomplete_ids = [int(x) for x in sup_all.loc[~(sup_all["has_bs"] & sup_all["has_bh"]), "ID"]]
+        qc_failed_ids = []
+        qc_failed_reasons = {}
     dot = pd.read_csv(res / "dot_features_const_dpf.csv")
 
     def supine_full(frame: pd.DataFrame, k: int = 3, decoupling: str = "spe") -> pd.DataFrame:
@@ -198,7 +235,16 @@ def run_all(root_dir: Path | str) -> dict[str, object]:
     y_sup = sup["ID"].isin(SUPINE_POSITIVE_IDS).to_numpy()
     summary: dict[str, object] = {
         "threshold": ALARM_THRESHOLD,
+        "screening_threshold": SCREENING_THRESHOLD,
+        "qc_funnel": {
+            "enrolled": int(len(sup_all)),
+            "incomplete_ids": incomplete_ids,
+            "qc_failed_short_channel_ids": qc_failed_ids,
+            "qc_failed_reasons": qc_failed_reasons,
+            "analyzed": int(len(sup)),
+        },
         "supine": summarize(sup_scores, SUPINE_POSITIVE_IDS),
+        "supine_crit_b": summarize(sup_scores, SUPINE_CRIT_B_IDS),
         "supine_heart_only": summarize(heart, SUPINE_POSITIVE_IDS),
         "supine_cortex_only": summarize(cortex, SUPINE_POSITIVE_IDS),
         "supine_age_auc": round(float(roc_auc_score(y_sup, sup["Age"])), 3),
@@ -208,8 +254,10 @@ def run_all(root_dir: Path | str) -> dict[str, object]:
             "decoupling_pct": round(float(y38.decoupling_pct), 1),
             "alarm_pct": round(float(y38.alarm_pct), 1),
             "rank": int(y38["rank"]),
+            "n_tied": int((young_scores["alarm_raw"] == y38["alarm_raw"]).sum()),
         },
         "dot": summarize(dot_scores, DOT_POSITIVE_IDS),
+        "dot_crit_a": summarize(dot_scores, DOT_CRIT_A_IDS),
         "k_sensitivity": [],
         "variants_k3": {},
     }
