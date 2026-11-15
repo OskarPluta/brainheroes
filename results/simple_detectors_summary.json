@@ -1,0 +1,503 @@
+{
+  "n_permutations": 200,
+  "n_features": {
+    "supine": {
+      "bazowe": 12,
+      "rozszerzone": 32
+    },
+    "dot": {
+      "bazowe": 13,
+      "rozszerzone": 25
+    }
+  },
+  "supine": [
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "Isolation Forest",
+      "auc": 0.644,
+      "ranks": {
+        "38": 11,
+        "48": 27,
+        "49": 31,
+        "60": 18
+      },
+      "review_to_catch_all": 31
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "LOF",
+      "auc": 0.731,
+      "ranks": {
+        "38": 2,
+        "48": 18,
+        "49": 22,
+        "60": 26
+      },
+      "review_to_catch_all": 26
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "One-Class SVM",
+      "auc": 0.718,
+      "ranks": {
+        "38": 3,
+        "48": 19,
+        "49": 28,
+        "60": 21
+      },
+      "review_to_catch_all": 28
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "Mahalanobis",
+      "auc": 0.713,
+      "ranks": {
+        "38": 3,
+        "48": 21,
+        "49": 23,
+        "60": 25
+      },
+      "review_to_catch_all": 25
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "Odległość kNN",
+      "auc": 0.685,
+      "ranks": {
+        "38": 4,
+        "48": 20,
+        "49": 24,
+        "60": 30
+      },
+      "review_to_catch_all": 30
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "Błąd rekonstrukcji PCA",
+      "auc": 0.75,
+      "ranks": {
+        "38": 1,
+        "48": 11,
+        "49": 33,
+        "60": 19
+      },
+      "review_to_catch_all": 33
+    },
+    {
+      "family": "z etykietami",
+      "features": "bazowe",
+      "model": "Regresja logistyczna",
+      "auc": 0.593,
+      "ranks": {
+        "38": 57,
+        "48": 3,
+        "49": 13,
+        "60": 25
+      },
+      "review_to_catch_all": 57,
+      "null_mean": 0.445,
+      "null_p95": 0.732,
+      "p_perm": 0.249
+    },
+    {
+      "family": "z etykietami",
+      "features": "bazowe",
+      "model": "Las losowy",
+      "auc": 0.639,
+      "ranks": {
+        "38": 28,
+        "48": 1,
+        "49": 48,
+        "60": 11
+      },
+      "review_to_catch_all": 48,
+      "null_mean": 0.429,
+      "null_p95": 0.764,
+      "p_perm": 0.159
+    },
+    {
+      "family": "z etykietami",
+      "features": "bazowe",
+      "model": "XGBoost",
+      "auc": 0.731,
+      "ranks": {
+        "38": 30,
+        "48": 1,
+        "49": 33,
+        "60": 4
+      },
+      "review_to_catch_all": 33,
+      "null_mean": 0.472,
+      "null_p95": 0.782,
+      "p_perm": 0.1
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "Isolation Forest",
+      "auc": 0.546,
+      "ranks": {
+        "38": 13,
+        "48": 34,
+        "49": 25,
+        "60": 36
+      },
+      "review_to_catch_all": 36
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "LOF",
+      "auc": 0.602,
+      "ranks": {
+        "38": 11,
+        "48": 33,
+        "49": 23,
+        "60": 29
+      },
+      "review_to_catch_all": 33
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "One-Class SVM",
+      "auc": 0.667,
+      "ranks": {
+        "38": 11,
+        "48": 19,
+        "49": 20,
+        "60": 32
+      },
+      "review_to_catch_all": 32
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "Mahalanobis",
+      "auc": 0.528,
+      "ranks": {
+        "38": 6,
+        "48": 37,
+        "49": 23,
+        "60": 46
+      },
+      "review_to_catch_all": 46
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "Odległość kNN",
+      "auc": 0.532,
+      "ranks": {
+        "38": 11,
+        "48": 31,
+        "49": 26,
+        "60": 43
+      },
+      "review_to_catch_all": 43
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "Błąd rekonstrukcji PCA",
+      "auc": 0.731,
+      "ranks": {
+        "38": 3,
+        "48": 21,
+        "49": 16,
+        "60": 28
+      },
+      "review_to_catch_all": 28
+    },
+    {
+      "family": "z etykietami",
+      "features": "rozszerzone",
+      "model": "Regresja logistyczna",
+      "auc": 0.625,
+      "ranks": {
+        "38": 57,
+        "48": 3,
+        "49": 7,
+        "60": 24
+      },
+      "review_to_catch_all": 57,
+      "null_mean": 0.432,
+      "null_p95": 0.728,
+      "p_perm": 0.174
+    },
+    {
+      "family": "z etykietami",
+      "features": "rozszerzone",
+      "model": "Las losowy",
+      "auc": 0.741,
+      "ranks": {
+        "38": 25,
+        "48": 1,
+        "49": 19,
+        "60": 21
+      },
+      "review_to_catch_all": 25,
+      "null_mean": 0.429,
+      "null_p95": 0.728,
+      "p_perm": 0.05
+    },
+    {
+      "family": "z etykietami",
+      "features": "rozszerzone",
+      "model": "XGBoost",
+      "auc": 0.792,
+      "ranks": {
+        "38": 24,
+        "48": 1,
+        "49": 9,
+        "60": 21
+      },
+      "review_to_catch_all": 24,
+      "null_mean": 0.469,
+      "null_p95": 0.774,
+      "p_perm": 0.05
+    }
+  ],
+  "dot": [
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "Isolation Forest",
+      "auc": 0.571,
+      "ranks": {
+        "9": 9,
+        "12": 11,
+        "16": 4
+      },
+      "review_to_catch_all": 11
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "LOF",
+      "auc": 0.452,
+      "ranks": {
+        "9": 15,
+        "12": 9,
+        "16": 5
+      },
+      "review_to_catch_all": 15
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "One-Class SVM",
+      "auc": 0.69,
+      "ranks": {
+        "9": 6,
+        "12": 10,
+        "16": 3
+      },
+      "review_to_catch_all": 10
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "Mahalanobis",
+      "auc": 0.667,
+      "ranks": {
+        "9": 8,
+        "12": 9,
+        "16": 3
+      },
+      "review_to_catch_all": 9
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "Odległość kNN",
+      "auc": 0.452,
+      "ranks": {
+        "9": 12,
+        "12": 13,
+        "16": 4
+      },
+      "review_to_catch_all": 13
+    },
+    {
+      "family": "bez etykiet",
+      "features": "bazowe",
+      "model": "Błąd rekonstrukcji PCA",
+      "auc": 0.738,
+      "ranks": {
+        "9": 5,
+        "12": 10,
+        "16": 2
+      },
+      "review_to_catch_all": 10
+    },
+    {
+      "family": "z etykietami",
+      "features": "bazowe",
+      "model": "Regresja logistyczna",
+      "auc": 0.881,
+      "ranks": {
+        "9": 6,
+        "12": 1,
+        "16": 4
+      },
+      "review_to_catch_all": 6,
+      "null_mean": 0.427,
+      "null_p95": 0.835,
+      "p_perm": 0.035
+    },
+    {
+      "family": "z etykietami",
+      "features": "bazowe",
+      "model": "Las losowy",
+      "auc": 0.833,
+      "ranks": {
+        "9": 4,
+        "12": 8,
+        "16": 1
+      },
+      "review_to_catch_all": 8,
+      "null_mean": 0.375,
+      "null_p95": 0.857,
+      "p_perm": 0.07
+    },
+    {
+      "family": "z etykietami",
+      "features": "bazowe",
+      "model": "XGBoost",
+      "auc": 1.0,
+      "ranks": {
+        "9": 2,
+        "12": 3,
+        "16": 1
+      },
+      "review_to_catch_all": 3,
+      "null_mean": 0.47,
+      "null_p95": 0.858,
+      "p_perm": 0.025
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "Isolation Forest",
+      "auc": 0.738,
+      "ranks": {
+        "9": 4,
+        "12": 5,
+        "16": 8
+      },
+      "review_to_catch_all": 8
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "LOF",
+      "auc": 0.476,
+      "ranks": {
+        "9": 7,
+        "12": 16,
+        "16": 5
+      },
+      "review_to_catch_all": 16
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "One-Class SVM",
+      "auc": 0.738,
+      "ranks": {
+        "9": 5,
+        "12": 9,
+        "16": 3
+      },
+      "review_to_catch_all": 9
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "Mahalanobis",
+      "auc": 0.81,
+      "ranks": {
+        "9": 5,
+        "12": 7,
+        "16": 2
+      },
+      "review_to_catch_all": 7
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "Odległość kNN",
+      "auc": 0.69,
+      "ranks": {
+        "9": 6,
+        "12": 9,
+        "16": 4
+      },
+      "review_to_catch_all": 9
+    },
+    {
+      "family": "bez etykiet",
+      "features": "rozszerzone",
+      "model": "Błąd rekonstrukcji PCA",
+      "auc": 0.714,
+      "ranks": {
+        "9": 6,
+        "12": 10,
+        "16": 2
+      },
+      "review_to_catch_all": 10
+    },
+    {
+      "family": "z etykietami",
+      "features": "rozszerzone",
+      "model": "Regresja logistyczna",
+      "auc": 0.5,
+      "ranks": {
+        "9": 14,
+        "12": 7,
+        "16": 6
+      },
+      "review_to_catch_all": 14,
+      "null_mean": 0.423,
+      "null_p95": 0.81,
+      "p_perm": 0.433
+    },
+    {
+      "family": "z etykietami",
+      "features": "rozszerzone",
+      "model": "Las losowy",
+      "auc": 0.643,
+      "ranks": {
+        "9": 5,
+        "12": 12,
+        "16": 4
+      },
+      "review_to_catch_all": 12,
+      "null_mean": 0.377,
+      "null_p95": 0.833,
+      "p_perm": 0.169
+    },
+    {
+      "family": "z etykietami",
+      "features": "rozszerzone",
+      "model": "XGBoost",
+      "auc": 1.0,
+      "ranks": {
+        "9": 2,
+        "12": 3,
+        "16": 1
+      },
+      "review_to_catch_all": 3,
+      "null_mean": 0.479,
+      "null_p95": 0.883,
+      "p_perm": 0.015
+    }
+  ]
+}
